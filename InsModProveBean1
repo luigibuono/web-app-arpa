@@ -1,0 +1,1347 @@
+/*
+ * To change this license header, choose License Headers in Project Properties.
+ * To change this template file, choose Tools | Templates
+ * and open the template in the editor.
+ */
+package it.cidsoftware.sita.bean.lims.tabelleBase;
+
+import com.cid.sita.bd.EsameBD;
+import com.cid.sita.bd.EsameBDException;
+import com.cid.sita.bd.FasiLaboratorioBD;
+import com.cid.sita.bd.FasiLaboratorioBDException;
+import com.cid.sita.bd.MatriceBD;
+import com.cid.sita.bd.MetodoMisuraBD;
+import com.cid.sita.bd.MetodoMisuraBDException;
+import com.cid.sita.bd.StrutturaAmministrativaBD;
+import com.cid.sita.bd.StrutturaAmministrativaBDException;
+import com.cid.sita.bd.TipologiaFaseBD;
+import com.cid.sita.bd.TipologiaFaseBDException;
+import com.cid.sita.bd.UnitaMisuraBD;
+import com.cid.sita.bd.UnitaMisuraBDException;
+import com.cid.sita.bd.esame.EsameDTOModel;
+import com.cid.sita.bd.esame.EsameMetodoExtModel;
+import com.cid.sita.bd.esame.EsameMetodoMatriceDTOModel;
+import com.cid.sita.bd.esame.EsameMetodoModel;
+import com.cid.sita.bd.esame.MatriceModel;
+import com.cid.sita.bd.esame.ProfiloAnaliticoModel;
+import com.cid.sita.bd.fasilaboratorio.FaseLabDTOModel;
+import com.cid.sita.bd.fasilaboratorio.FaseLabMetodoDTOModel;
+import com.cid.sita.bd.metodomisura.MetodoMisuraModel;
+import com.cid.sita.bd.strutturaamministrativa.StrutturaAmministrativaModel;
+import com.cid.sita.bd.tipologiafase.TipologiaFaseModel;
+import com.cid.sita.bd.unitamisura.UnitaMisuraModel;
+import it.cidsoftware.sita.bean.lims.AttivitaDiCampoBean;
+import it.cidsoftware.sita.bean.lims.GestioneMisureParametriCampoBean;
+import it.cidsoftware.sita.bean.lims.MetodiParametriLaboratorioBean;
+
+import it.cidsoftware.sita.bean.login.UserData;
+import it.cidsoftware.sita.faces.util.AbstractPageBean;
+import it.cidsoftware.sita.faces.util.JSFUtils;
+import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Date;
+import java.util.List;
+import java.util.Map;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+import java.util.stream.Collectors;
+import javax.annotation.PostConstruct;
+import javax.faces.bean.ManagedBean;
+import javax.faces.bean.ViewScoped;
+import javax.faces.context.ExternalContext;
+import javax.faces.context.FacesContext;
+import javax.faces.event.AjaxBehaviorEvent;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpSession;
+import org.apache.commons.lang3.StringUtils;
+import org.primefaces.component.selectonemenu.SelectOneMenu;
+import org.primefaces.event.ReorderEvent;
+
+@ManagedBean(name = "insModProveBean")
+@ViewScoped
+public class InsModProveBean extends AbstractPageBean implements Serializable {
+
+    private EsameDTOModel esameModel = new EsameDTOModel();
+
+    private List<MatriceModel> elencoMatrici = new ArrayList<>();
+    private List<MatriceModel> listaMatriciDisponibili = new ArrayList<>();
+    private List<MatriceModel> listaMatriciDisponibiliMod = new ArrayList<>();
+    private List<MatriceModel> listaMatriciSelezionate = new ArrayList<>();
+    private List<MatriceModel> listaMatriciSelezionateMod = new ArrayList<>();
+
+    private StrutturaAmministrativaModel[] listaStruttura = new StrutturaAmministrativaModel[0];
+
+    private MetodoMisuraModel[] listaMetodiMisura = new MetodoMisuraModel[0];
+
+    private ProfiloAnaliticoModel[] listaProfili = new ProfiloAnaliticoModel[0];
+
+    private long idDipartimento = 0;
+
+    private EsameMetodoExtModel selectedMetodo = new EsameMetodoExtModel();
+    private EsameMetodoExtModel selectedMetodoIns = new EsameMetodoExtModel();
+
+    private UnitaMisuraModel[] listaUnitaMisura = new UnitaMisuraModel[0];
+
+    private EsameMetodoExtModel[] listaMetodiParametriLaboratorio = new EsameMetodoExtModel[0];
+
+    private UserData userData = JSFUtils.getuserData();
+    private HttpSession session = JSFUtils.getSession();
+
+    private EsameMetodoMatriceDTOModel[] listaEsameMetodoMatrice = new EsameMetodoMatriceDTOModel[0];
+
+    private boolean boolInserimento = false;
+    private boolean boolModifica = false;
+    private boolean boolDipartimentoInserito = false;
+
+    private boolean boolTablePre = false;
+
+    private boolean boolGestioneParametri = false;
+    private EsameMetodoExtModel matriciMetodoModel = new EsameMetodoExtModel();
+    private List<EsameMetodoExtModel> listaMatriciMetodo = new ArrayList<>();
+    private TipologiaFaseModel[] listaTipologieFasi;
+    private FaseLabDTOModel[] listaFasiAssociabili = new FaseLabDTOModel[0];
+    private long idFaseSelezionata;
+    private boolean faseObbligatoria;
+    private long idTipologiaSelezionata;
+    private boolean boolCollapsedFldNuovoParametro;
+
+    private FaseLabMetodoDTOModel[] listaParametriFasePreparativa = new FaseLabMetodoDTOModel[0];
+    private FaseLabMetodoDTOModel[] listaParametriFaseAnalitica = new FaseLabMetodoDTOModel[0];
+
+    private Long idStrutturaDaCarta;
+    private Long matriceDaCarta;
+    private String denominazioneStrutturaSelezionata;
+    private String descrizioneMatriceSelezionata;
+
+    public InsModProveBean() {
+
+    }
+
+    @PostConstruct
+    public void initialize() {
+
+        String idEsame = ((HttpServletRequest) FacesContext.getCurrentInstance().getExternalContext().getRequest()).getParameter("idEsame");
+        if (idEsame != null && !StringUtils.isEmpty(idEsame)) {
+            try {
+                EsameBD esameBD = new EsameBD();
+                esameModel = esameBD.cercaPerPk(Long.parseLong(idEsame), JSFUtils.getLoggedUser());
+            } catch (EsameBDException ex) {
+                Logger.getLogger(InsModProveBean.class.getName()).log(Level.SEVERE, null, ex);
+            }
+
+        }
+
+        ExternalContext externalContext = FacesContext.getCurrentInstance().getExternalContext();
+        Map<String, Object> sessionMap = FacesContext.getCurrentInstance().getExternalContext().getSessionMap();
+
+        Object struttura = sessionMap.get("idStruttura");
+        Object matrice = sessionMap.get("idMatrice");
+
+        if (struttura != null) {
+            this.setIdStrutturaDaCarta((Long) struttura);
+        }
+
+        if (matrice != null) {
+            this.setMatriceDaCarta((Long) matrice);
+        }
+        // Recupera denominazione struttura
+        for (StrutturaAmministrativaModel s : listaStruttura) {
+            if (Long.valueOf(s.getIdStruttura()).equals(getIdStrutturaDaCarta())) {
+                this.setDenominazioneStrutturaSelezionata(s.getDenominazione());
+                break;
+            }
+        }
+
+        // Recupera descrizione matrice
+        for (MatriceModel m : listaMatriciDisponibili) {
+            if (Long.valueOf(m.getIdMatrice()).equals(getMatriceDaCarta())) {
+                this.setDescrizioneMatriceSelezionata(m.getDescrizione());
+                break;
+            }
+        }
+
+        caricaUnitaMisura();
+        caricaMetodi();
+        caricaDipartimenti();
+        caricaMatrici();
+        caricaMetodiParametriLaboratorio();
+        caricaTipologiaFasi();
+
+        FacesContext fc = FacesContext.getCurrentInstance();
+        Map<String, String> params = fc.getExternalContext().getRequestParameterMap();
+        String editMode = params.get("editMode");
+
+       if ("2".equals(editMode)) {
+           boolModifica = false;
+           boolInserimento = false;
+     } else {
+          boolInserimento = true;
+          boolModifica = false;
+      }
+    }
+
+    public List<MatriceModel> getElencoMatriciFiltrato() {
+        List<MatriceModel> risultato = new ArrayList<>();
+
+        // Controllo se è selezionata una matrice valida
+        if (matriceDaCarta <= 0) {
+            return risultato;
+        }
+
+        for (MatriceModel m : elencoMatrici) {
+            if (matriceDaCarta != null && matriceDaCarta.equals(m.getIdMatrice())) {
+                risultato.add(m);
+                break;
+            }
+
+        }
+
+        return risultato;
+    }
+
+    public void caricaMetodiParametriLaboratorio() {
+        try {
+            if (idStrutturaDaCarta != null && idStrutturaDaCarta > 0) {
+                idDipartimento = idStrutturaDaCarta;
+            }
+
+            System.out.println("=== caricaMetodiParametriLaboratorio ===");
+            System.out.println("idStrutturaDaCarta: " + idStrutturaDaCarta);
+            System.out.println("idDipartimento: " + idDipartimento);
+            System.out.println("esameModel: " + (esameModel != null ? esameModel.getIdEsame() : "null"));
+            System.out.println("matriceDaCarta: " + matriceDaCarta);
+
+            if (esameModel != null && esameModel.getIdEsame() > 0 && idDipartimento > 0) {
+                boolDipartimentoInserito = true;
+                EsameBD esameBD = new EsameBD();
+                caricaMatrici();  // Assumo popola elencoMatrici
+
+                EsameMetodoExtModel[] arrayMetodi = esameBD.caricaMetodiPerEsame(
+                        idDipartimento,
+                        esameModel.getIdEsame(),
+                        JSFUtils.getLoggedUser()
+                );
+
+                System.out.println("Totale metodi caricati: " + arrayMetodi.length);
+
+                if (matriceDaCarta != null && matriceDaCarta > 0) {
+                    String descrizioneMatriceDaCarta = null;
+                    for (MatriceModel m : elencoMatrici) {
+                        if (matriceDaCarta.equals(m.getIdMatrice())) {
+                            descrizioneMatriceDaCarta = m.getDescrizione();
+                            break;
+                        }
+                    }
+
+                    if (descrizioneMatriceDaCarta != null) {
+                        final String descrizioneFiltro = descrizioneMatriceDaCarta; // final per lambda
+
+                        List<EsameMetodoExtModel> filtered = Arrays.stream(arrayMetodi)
+                                .filter(elem -> elem.getMatrice() != null
+                                && descrizioneFiltro.equals(elem.getMatrice()))
+                                .collect(Collectors.toList());
+
+                        listaMetodiParametriLaboratorio = filtered.toArray(new EsameMetodoExtModel[0]);
+                    } else {
+                        System.out.println("Descrizione matriceDaCarta non trovata, nessun filtro applicato.");
+                        listaMetodiParametriLaboratorio = arrayMetodi;
+                    }
+                } else {
+                    listaMetodiParametriLaboratorio = arrayMetodi;
+                    System.out.println("Nessun filtro matrice applicato, metodi in lista: " + listaMetodiParametriLaboratorio.length);
+                }
+
+                caricaProfiliAnalitici();
+
+            } else {
+                boolDipartimentoInserito = false;
+                listaMetodiParametriLaboratorio = new EsameMetodoExtModel[0];
+                warn("Selezionare il Dipartimento!");
+            }
+
+        } catch (Exception ex) {
+            ex.printStackTrace();
+        }
+    }
+
+    private void caricaMetodi() {
+        MetodoMisuraBD metodoBD = new MetodoMisuraBD();
+        try {
+
+            listaMetodiMisura = metodoBD.findAll(JSFUtils.getLoggedUser());
+
+        } catch (MetodoMisuraBDException ex) {
+            Logger.getLogger(InsModProveBean.class.getName()).log(Level.SEVERE, null, ex);
+        }
+    }
+
+    private void caricaMatrici() {
+        try {
+            elencoMatrici = new ArrayList<>();
+            EsameBD esBD = new EsameBD();
+
+            MatriceModel[] elenco = esBD.caricaMatriciCartaDeiServizi(idDipartimento, JSFUtils.getLoggedUser());
+
+            if (elenco != null && elenco.length > 0) {
+                elencoMatrici = Arrays.asList(elenco);
+            }
+
+        } catch (EsameBDException ex) {
+            Logger.getLogger(InsModProveBean.class.getName()).log(Level.SEVERE, null, ex);
+        }
+    }
+
+    private void caricaProfiliAnalitici() {
+        try {
+
+            EsameBD esBD = new EsameBD();
+            listaProfili = esBD.caricaProfiliAnalitici(0L, "", "", idDipartimento, JSFUtils.getLoggedUser());
+
+        } catch (EsameBDException ex) {
+            Logger.getLogger(InsModProveBean.class.getName()).log(Level.SEVERE, null, ex);
+        }
+    }
+
+    public void caricaDipartimenti() {
+
+        StrutturaAmministrativaBD strAmmBD = new StrutturaAmministrativaBD();
+        try {
+            setListaStruttura(strAmmBD.caricaDipartimenti(JSFUtils.getLoggedUser()));
+        } catch (StrutturaAmministrativaBDException ex) {
+            Logger.getLogger(AttivitaDiCampoBean.class.getName()).log(Level.SEVERE, null, ex);
+        }
+    }
+
+    private void caricaUnitaMisura() {
+        UnitaMisuraBD unitaMisuraBD = new UnitaMisuraBD();
+        try {
+
+            listaUnitaMisura = unitaMisuraBD.cerca("", "", "", "", JSFUtils.getLoggedUser());
+
+        } catch (UnitaMisuraBDException ex) {
+            Logger.getLogger(GestioneMisureParametriCampoBean.class.getName()).log(Level.SEVERE, null, ex);
+        }
+    }
+
+    private void caricaTipologiaFasi() {
+        TipologiaFaseBD tipoFaseBD = new TipologiaFaseBD();
+        try {
+
+            listaTipologieFasi = tipoFaseBD.findAll(JSFUtils.getLoggedUser());
+
+        } catch (TipologiaFaseBDException ex) {
+            Logger.getLogger(InsModProveBean.class.getName()).log(Level.SEVERE, null, ex);
+        }
+    }
+
+    public void changedTipologia(AjaxBehaviorEvent event) {
+
+        SelectOneMenu selectTipoFasi = ((SelectOneMenu) event.getSource());
+        long idTipologia = (long) selectTipoFasi.getValue();
+
+        try {
+            // passando false non fa alcun filtro sulle fasi preparative o meno
+            FasiLaboratorioBD fasiBD = new FasiLaboratorioBD();
+            listaFasiAssociabili = fasiBD.estraiListaFasiLaboratorio(null, idTipologia, false, JSFUtils.getLoggedUser());
+        } catch (Exception ex) {
+            Logger.getLogger(InsModProveBean.class.getName()).log(Level.SEVERE, null, ex);
+            ex.printStackTrace();
+        }
+
+    }
+
+    public String associaParametroProva() {
+
+        try {
+
+            if (idFaseSelezionata <= 0) {
+                error("Selezionare il parametro prova");
+                return null;
+            }
+
+            // FIXME: ATTENZIONE il campo ordineDaGestire va messo su maschera per consentire di scegliere un valore per l'ordinamento
+            Integer ordineDaGestire = null;
+            FasiLaboratorioBD fasiBD = new FasiLaboratorioBD();
+            System.out.println("idEsameMetodo --> " + matriciMetodoModel.getIdEsameMetodo());
+            System.out.println("idFaseSelezionata --> " + idFaseSelezionata);
+            fasiBD.associaFaseEsameMetodo(matriciMetodoModel.getIdEsameMetodo(), idFaseSelezionata, faseObbligatoria, JSFUtils.getLoggedUser(), ordineDaGestire, JSFUtils.getLoggedUser());
+
+            // reset
+            idTipologiaSelezionata = 0;
+            idFaseSelezionata = 0;
+            faseObbligatoria = false;
+            boolCollapsedFldNuovoParametro = true;
+            listaFasiAssociabili = new FaseLabDTOModel[0];
+
+            // aggiorno i parametri associati
+            caricaParametriProva(matriciMetodoModel.getIdEsameMetodo());
+
+            info("Operazione avvenuta con successo");
+        } catch (Exception e) {
+            error("Errore nll'associazione ");
+        }
+
+        return null;
+    }
+
+    public String disassociaFase(FaseLabMetodoDTOModel fase) {
+
+        try {
+            FasiLaboratorioBD fasiBD = new FasiLaboratorioBD();
+            fasiBD.disassociaFaseEsameMetodo(fase, JSFUtils.getLoggedUser(), JSFUtils.getLoggedUser());
+
+            // aggiorno i parametri associati
+            caricaParametriProva(matriciMetodoModel.getIdEsameMetodo());
+
+            info("Operazione avvenuta con successo");
+        } catch (Exception e) {
+            error("Attenzione: operazione di dissociazione fallita " + e.getMessage());
+        }
+
+        return null;
+    }
+
+    public void abilitaInserimento() {
+        selectedMetodoIns = new EsameMetodoExtModel();
+        selectedMetodoIns.setIdEsame(esameModel.getIdEsame());
+        listaMatriciDisponibili = elencoMatrici;
+        boolInserimento = true;
+
+    }
+
+    public void abilitaModifica(EsameMetodoExtModel tmp) {
+        selectedMetodo = new EsameMetodoExtModel();
+        selectedMetodo = tmp;
+        listaMatriciDisponibiliMod = new ArrayList<>();
+        for (MatriceModel tmpD : elencoMatrici) {
+            boolean trovato = false;
+            for (MatriceModel tmpM : selectedMetodo.getListaMatrice()) {
+                if (tmpD.getIdMatrice() == tmpM.getIdMatrice()) {
+                    trovato = true;
+                    break;
+                }
+            }
+
+            if (!trovato) {
+                listaMatriciDisponibiliMod.add(tmpD);
+            }
+        }
+        boolModifica = true;
+    }
+
+    public void annullaInserimento() {
+        boolInserimento = false;
+        selectedMetodoIns = new EsameMetodoExtModel();
+        selectedMetodoIns.setListaMatrice(new ArrayList<>());
+    }
+
+    public void annullaModifica() {
+        boolModifica = false;
+        selectedMetodo = new EsameMetodoExtModel();
+    }
+
+    public void abilitaGestionePredefinito() {
+        try {
+            EsameBD esameBD = new EsameBD();
+            listaEsameMetodoMatrice = esameBD.caricaMetodiMatricePerEsame(idDipartimento, esameModel.getIdEsame(), JSFUtils.getLoggedUser());
+            boolTablePre = true;
+        } catch (EsameBDException ex) {
+            Logger.getLogger(InsModProveBean.class.getName()).log(Level.SEVERE, null, ex);
+        }
+    }
+
+    public void annullaGestionePredefinito() {
+
+        listaEsameMetodoMatrice = new EsameMetodoMatriceDTOModel[0];
+        boolTablePre = false;
+
+    }
+
+    public void abilitaGestioneParametri(EsameMetodoExtModel tmp) {
+        matriciMetodoModel = tmp;
+        listaMatriciMetodo.add(tmp);
+        boolGestioneParametri = true;
+        boolCollapsedFldNuovoParametro = true;
+        caricaParametriProva(matriciMetodoModel.getIdEsameMetodo());
+
+    }
+
+    public void caricaParametriProva(long idEsameMetodo) {
+        try {
+
+            FasiLaboratorioBD fasiLabBD = new FasiLaboratorioBD();
+            FaseLabMetodoDTOModel[] listaParametri = fasiLabBD.estraiFasiPerEsameMetodo(idEsameMetodo, JSFUtils.getLoggedUser());
+
+            List<FaseLabMetodoDTOModel> listaprep = new ArrayList<>();
+            List<FaseLabMetodoDTOModel> listaana = new ArrayList<>();
+            listaParametriFasePreparativa = new FaseLabMetodoDTOModel[0];
+            listaParametriFaseAnalitica = new FaseLabMetodoDTOModel[0];
+            for (FaseLabMetodoDTOModel tmp : listaParametri) {
+                if ("FP".equals(tmp.getCodiceTipologia())) {
+                    listaprep.add(tmp);
+                }
+
+                if ("FA".equals(tmp.getCodiceTipologia())) {
+                    listaana.add(tmp);
+                }
+            }
+
+            if (listaprep.size() > 0) {
+                listaParametriFasePreparativa = new FaseLabMetodoDTOModel[listaprep.size()];
+                listaParametriFasePreparativa = listaprep.toArray(listaParametriFasePreparativa);
+            }
+
+            if (listaana.size() > 0) {
+                listaParametriFaseAnalitica = new FaseLabMetodoDTOModel[listaana.size()];
+                listaParametriFaseAnalitica = listaana.toArray(listaParametriFaseAnalitica);
+            }
+
+        } catch (FasiLaboratorioBDException ex) {
+            Logger.getLogger(InsModProveBean.class.getName()).log(Level.SEVERE, null, ex);
+        }
+    }
+
+    public void annullaGestioneParametri() {
+        matriciMetodoModel = new EsameMetodoExtModel();
+        listaMatriciMetodo = new ArrayList<>();
+        boolGestioneParametri = false;
+
+    }
+
+    public void onRowReorderPre(ReorderEvent event) {
+        System.out.println("Row Moved From: " + event.getFromIndex() + ", To:" + event.getToIndex());
+
+        listaParametriFasePreparativa = inserisciElementoInPosizioneInArray(listaParametriFasePreparativa, event.getFromIndex(), event.getToIndex());
+
+        salvaOrdinamentoPre();
+
+        // fine swap */
+    }
+
+    public String salvaOrdinamentoPre() {
+
+        try {
+            for (int i = 0; i < listaParametriFasePreparativa.length; ++i) {
+                listaParametriFasePreparativa[i].setOrdine(i);
+            }
+
+            FasiLaboratorioBD fasiBD = new FasiLaboratorioBD();
+            fasiBD.salvaOrdinamneto(listaParametriFasePreparativa, JSFUtils.getLoggedUser());
+            //info("Ordinamento salvato con successo");
+
+            // angelo: estraggo elenco delle fasi associate al metodo
+            caricaParametriProva(matriciMetodoModel.getIdEsameMetodo());
+            // fine angelo
+
+        } catch (Exception e) {
+            error("Errore nel salvataggio dell'ordinamento");
+        }
+
+        return null;
+    }
+
+    public void onRowReorderAna(ReorderEvent event) {
+        System.out.println("Row Moved From: " + event.getFromIndex() + ", To:" + event.getToIndex());
+
+        listaParametriFaseAnalitica = inserisciElementoInPosizioneInArray(listaParametriFaseAnalitica, event.getFromIndex(), event.getToIndex());
+
+        salvaOrdinamentoAna();
+
+        // fine swap */
+    }
+
+    public String salvaOrdinamentoAna() {
+
+        try {
+            for (int i = 0; i < listaParametriFaseAnalitica.length; ++i) {
+                listaParametriFaseAnalitica[i].setOrdine(i);
+            }
+
+            FasiLaboratorioBD fasiBD = new FasiLaboratorioBD();
+            fasiBD.salvaOrdinamneto(listaParametriFaseAnalitica, JSFUtils.getLoggedUser());
+            //info("Ordinamento salvato con successo");
+
+            // angelo: estraggo elenco delle fasi associate al metodo
+            caricaParametriProva(matriciMetodoModel.getIdEsameMetodo());
+            // fine angelo
+
+        } catch (Exception e) {
+            error("Errore nel salvataggio dell'ordinamento");
+        }
+
+        return null;
+    }
+
+    private FaseLabMetodoDTOModel[] inserisciElementoInPosizioneInArray(FaseLabMetodoDTOModel[] listaFasi, int fromIndex, int toIndex) {
+        FaseLabMetodoDTOModel[] newArr = new FaseLabMetodoDTOModel[listaFasi.length];
+
+        if (fromIndex == toIndex) { // nessun cambio
+            return listaFasi;
+        }
+
+        // se sposto in basso il valore
+        if (fromIndex < toIndex) {
+
+            // i precedenti vanno copiati
+            for (int i = 0; i < fromIndex; ++i) {
+                newArr[i] = listaFasi[i];
+            }
+            // imposto nuova posizione
+            newArr[toIndex] = listaFasi[fromIndex];
+
+            // i successivi vanno copiati
+            for (int i = toIndex + 1; i < listaFasi.length; ++i) {
+                newArr[i] = listaFasi[i];
+            }
+
+            // quelli in mezzo vanno spostati in alto
+            for (int i = fromIndex; i < toIndex; ++i) {
+                newArr[i] = listaFasi[(i + 1)];
+            }
+
+        } else {
+            // se sposto in alto  il valore
+            // fromIndex > toIndex
+
+            // i precedenti vanno copiati
+            for (int i = 0; i < toIndex; ++i) {
+                newArr[i] = listaFasi[i];
+            }
+            // imposto nuova posizione
+            newArr[toIndex] = listaFasi[fromIndex];
+
+            // i successivi vanno copiati
+            for (int i = fromIndex + 1; i < listaFasi.length; ++i) {
+                newArr[i] = listaFasi[i];
+            }
+
+            // quelli in mezzo vanno spostati in basso
+            for (int i = toIndex + 1; i <= fromIndex; ++i) {
+                newArr[i] = listaFasi[(i - 1)];
+            }
+        }
+
+        return newArr;
+    }
+
+    public void aggiungiMatriciIns() {
+        if (listaMatriciSelezionate != null && listaMatriciSelezionate.size() > 0) {
+            List<MatriceModel> listaMatrici = new ArrayList<>();
+
+            if (selectedMetodoIns.getListaMatrice() != null && selectedMetodoIns.getListaMatrice().size() > 0) {
+                for (MatriceModel tmp : selectedMetodoIns.getListaMatrice()) {
+                    listaMatrici.add(tmp);
+                }
+            }
+
+            for (MatriceModel tmp : listaMatriciSelezionate) {
+                listaMatrici.add(tmp);
+            }
+
+            selectedMetodoIns.setListaMatrice(listaMatrici);
+
+            listaMatriciDisponibili = new ArrayList<>();
+            listaMatriciSelezionate = new ArrayList<>();
+
+            for (MatriceModel tmpD : elencoMatrici) {
+                boolean trovato = false;
+                for (MatriceModel tmpM : selectedMetodoIns.getListaMatrice()) {
+                    if (tmpD.getIdMatrice() == tmpM.getIdMatrice()) {
+                        trovato = true;
+                        break;
+                    }
+                }
+
+                if (!trovato) {
+                    listaMatriciDisponibili.add(tmpD);
+                }
+            }
+
+        }
+
+    }
+
+    public void rimuoviMatriciIns(MatriceModel tmp) {
+
+        selectedMetodo.getListaMatrice().remove(tmp);
+
+        for (MatriceModel tmpD : elencoMatrici) {
+            boolean trovato = false;
+            for (MatriceModel tmpM : selectedMetodo.getListaMatrice()) {
+                if (tmpD.getIdMatrice() == tmpM.getIdMatrice()) {
+                    trovato = true;
+                    break;
+                }
+            }
+
+            if (!trovato) {
+                listaMatriciDisponibiliMod.add(tmpD);
+            }
+        }
+
+    }
+
+    public void aggiungiMatriciMod() {
+        if (listaMatriciSelezionateMod != null && listaMatriciSelezionateMod.size() > 0) {
+            List<MatriceModel> listaMatrici = new ArrayList<>();
+
+            if (selectedMetodo.getListaMatrice() != null && selectedMetodo.getListaMatrice().size() > 0) {
+                for (MatriceModel tmp : selectedMetodo.getListaMatrice()) {
+                    listaMatrici.add(tmp);
+                }
+            }
+
+            for (MatriceModel tmp : listaMatriciSelezionateMod) {
+                listaMatrici.add(tmp);
+            }
+
+            selectedMetodo.setListaMatrice(listaMatrici);
+
+            listaMatriciDisponibiliMod = new ArrayList<>();
+            listaMatriciSelezionateMod = new ArrayList<>();
+
+            for (MatriceModel tmpD : elencoMatrici) {
+                boolean trovato = false;
+                for (MatriceModel tmpM : selectedMetodo.getListaMatrice()) {
+                    if (tmpD.getIdMatrice() == tmpM.getIdMatrice()) {
+                        trovato = true;
+                        break;
+                    }
+                }
+
+                if (!trovato) {
+                    listaMatriciDisponibiliMod.add(tmpD);
+                }
+            }
+
+        }
+
+    }
+
+    public void rimuoviMatriciMod(MatriceModel tmp) {
+
+        selectedMetodo.getListaMatrice().remove(tmp);
+
+        for (MatriceModel tmpD : elencoMatrici) {
+            boolean trovato = false;
+            for (MatriceModel tmpM : selectedMetodo.getListaMatrice()) {
+                if (tmpD.getIdMatrice() == tmpM.getIdMatrice()) {
+                    trovato = true;
+                    break;
+                }
+            }
+
+            if (!trovato) {
+                listaMatriciDisponibiliMod.add(tmpD);
+            }
+        }
+
+    }
+
+    public void salvaInserimento() {
+
+        String mess = validate();
+        if (!StringUtils.isEmpty(mess)) {
+            error("Errore: " + mess);
+            return;
+        }
+
+        EsameBD esameBD = new EsameBD();
+        try {
+
+            selectedMetodoIns.setIdDipartimento(idDipartimento);
+            selectedMetodoIns.setDataCreate(new Date());
+            selectedMetodoIns.setUtente(JSFUtils.getLoggedUser());
+            esameBD.inserisciEsameMetodoMatrici(selectedMetodoIns, JSFUtils.getLoggedUser());
+
+            info("Inserimento avvenuto con successo");
+            caricaMetodiParametriLaboratorio();
+
+        } catch (EsameBDException ex) {
+            Logger.getLogger(InsModProveBean.class
+                    .getName()).log(Level.SEVERE, null, ex);
+        }
+
+        boolInserimento = false;
+
+    }
+
+    public String validate() {
+
+        return idDipartimento <= 0 ? "Dipartimento non selezionato!"
+                : (selectedMetodoIns.getListaMatrice() == null || selectedMetodoIns.getListaMatrice().isEmpty()) ? "Matrice/i non selezionata/e!"
+                : selectedMetodoIns.getIdMetodo() <= 0 ? "Metodo non selezionato!"
+                : selectedMetodoIns.getIdUnitaMisura() <= 0 ? "Unità Misura non selezionato!"
+                : "";
+    }
+
+    public String validateMod() {
+
+        return idDipartimento <= 0 ? "Dipartimento non selezionato!"
+                : (selectedMetodo.getListaMatrice() == null || selectedMetodo.getListaMatrice().isEmpty()) ? "Matrice/i non selezionata/e!"
+                : selectedMetodo.getIdMetodo() <= 0 ? "Metodo non selezionato!"
+                : selectedMetodo.getIdUnitaMisura() <= 0 ? "Unità Misura non selezionato!"
+                : "";
+    }
+
+    public void salvaModifica() {
+
+        String mess = validateMod();
+        if (!StringUtils.isEmpty(mess)) {
+            error("Errore: " + mess);
+            return;
+        }
+
+        EsameBD esame = new EsameBD();
+        try {
+
+            selectedMetodo.setDataUpdate(new Date());
+            selectedMetodo.setUtente(JSFUtils.getLoggedUser());
+            esame.modificaEsameMetodoMatrici(selectedMetodo, JSFUtils.getLoggedUser());
+            info("Modifica avvenuta con successo");
+            caricaMetodiParametriLaboratorio();
+
+        } catch (EsameBDException ex) {
+            Logger.getLogger(InsModProveBean.class
+                    .getName()).log(Level.SEVERE, null, ex);
+        }
+
+        boolModifica = false;
+    }
+
+    public void cmdCambiaPredefinito(EsameMetodoMatriceDTOModel obj) {
+
+        try {
+            EsameBD esameMetodoBD = new EsameBD();
+            EsameMetodoModel model = esameMetodoBD.caricaEsameMetodo(obj.getIdEsameMetodo(), JSFUtils.getLoggedUser());
+            esameMetodoBD.cambiaPredefinitoPerMatrice(model.getIdEsame(), model.getIdDipartimento(), obj.getIdMatrice(), model.getIdMetodo(), JSFUtils.getLoggedUser(), JSFUtils.getLoggedUser());
+
+            listaEsameMetodoMatrice = esameMetodoBD.caricaMetodiMatricePerEsame(idDipartimento, esameModel.getIdEsame(), JSFUtils.getLoggedUser());
+            info("Operazione avvenuta con successo");
+
+        } catch (EsameBDException ex) {
+            Logger.getLogger(MetodiParametriLaboratorioBean.class
+                    .getName()).log(Level.SEVERE, null, ex);
+        }
+    }
+
+    public void cmdElimina(EsameMetodoExtModel obj) {
+        try {
+            EsameBD esameBD = new EsameBD();
+            int conteggioPredefinito = esameBD.conteggioMetodoPredefinito(obj.getIdEsameMetodo(), JSFUtils.getLoggedUser());
+            if (conteggioPredefinito > 0) {
+                error("Errore: Non è possibile cancellare un metodo predefinito");
+                return;
+            }
+
+            EsameMetodoModel model = esameBD.caricaEsameMetodo(obj.getIdEsameMetodo(), JSFUtils.getLoggedUser());
+            model.setUtente(JSFUtils.getLoggedUser());
+            model.setDataDelete(new Date());
+            esameBD.eliminaEsameMetodo(model, JSFUtils.getLoggedUser());
+            caricaMetodiParametriLaboratorio();
+            info("Operazione avvenuta con successo");
+
+        } catch (EsameBDException ex) {
+            Logger.getLogger(InsModProveBean.class
+                    .getName()).log(Level.SEVERE, null, ex);
+        }
+    }
+
+    //--------------------------Set&Get--------------------------------
+    /**
+     * @return the userData
+     */
+    public UserData getUserData() {
+        return userData;
+    }
+
+    /**
+     * @param userData the userData to set
+     */
+    public void setUserData(UserData userData) {
+        this.userData = userData;
+    }
+
+    /**
+     * @return the session
+     */
+    public HttpSession getSession() {
+        return session;
+    }
+
+    /**
+     * @param session the session to set
+     */
+    public void setSession(HttpSession session) {
+        this.session = session;
+    }
+
+    /**
+     * @return the boolInserimento
+     */
+    public boolean isBoolInserimento() {
+        return boolInserimento;
+    }
+
+    /**
+     * @param boolInserimento the boolInserimento to set
+     */
+    public void setBoolInserimento(boolean boolInserimento) {
+        this.boolInserimento = boolInserimento;
+    }
+
+    /**
+     * @return the boolModifica
+     */
+    public boolean isBoolModifica() {
+        return boolModifica;
+    }
+
+    /**
+     * @param boolModifica the boolModifica to set
+     */
+    public void setBoolModifica(boolean boolModifica) {
+        this.boolModifica = boolModifica;
+    }
+
+    /**
+     * @return the selectedMetodo
+     */
+    public EsameMetodoExtModel getSelectedMetodo() {
+        return selectedMetodo;
+    }
+
+    /**
+     * @param selectedMetodo the selectedMetodo to set
+     */
+    public void setSelectedMetodo(EsameMetodoExtModel selectedMetodo) {
+        this.selectedMetodo = selectedMetodo;
+    }
+
+    /**
+     * @return the listaUnitaMisura
+     */
+    public UnitaMisuraModel[] getListaUnitaMisura() {
+        return listaUnitaMisura;
+    }
+
+    /**
+     * @param listaUnitaMisura the listaUnitaMisura to set
+     */
+    public void setListaUnitaMisura(UnitaMisuraModel[] listaUnitaMisura) {
+        this.listaUnitaMisura = listaUnitaMisura;
+    }
+
+    /**
+     * @return the elencoMatrici
+     */
+    public List<MatriceModel> getElencoMatrici() {
+        return elencoMatrici;
+    }
+
+    /**
+     * @param elencoMatrici the elencoMatrici to set
+     */
+    public void setElencoMatrici(List<MatriceModel> elencoMatrici) {
+        this.elencoMatrici = elencoMatrici;
+    }
+
+    /**
+     * @return the selectedMetodoIns
+     */
+    public EsameMetodoExtModel getSelectedMetodoIns() {
+        return selectedMetodoIns;
+    }
+
+    /**
+     * @param selectedMetodoIns the selectedMetodoIns to set
+     */
+    public void setSelectedMetodoIns(EsameMetodoExtModel selectedMetodoIns) {
+        this.selectedMetodoIns = selectedMetodoIns;
+    }
+
+    /**
+     * @return the idDipartimento
+     */
+    public long getIdDipartimento() {
+        return idDipartimento;
+    }
+
+    /**
+     * @param idDipartimento the idDipartimento to set
+     */
+    public void setIdDipartimento(long idDipartimento) {
+        this.idDipartimento = idDipartimento;
+    }
+
+    /**
+     * @return the listaMetodiMisura
+     */
+    public MetodoMisuraModel[] getListaMetodiMisura() {
+        return listaMetodiMisura;
+    }
+
+    /**
+     * @param listaMetodiMisura the listaMetodiMisura to set
+     */
+    public void setListaMetodiMisura(MetodoMisuraModel[] listaMetodiMisura) {
+        this.listaMetodiMisura = listaMetodiMisura;
+    }
+
+    /**
+     * @return the esameModel
+     */
+    public EsameDTOModel getEsameModel() {
+        return esameModel;
+    }
+
+    /**
+     * @param esameModel the esameModel to set
+     */
+    public void setEsameModel(EsameDTOModel esameModel) {
+        this.esameModel = esameModel;
+    }
+
+    /**
+     * @return the listaMetodiParametriLaboratorio
+     */
+    public EsameMetodoExtModel[] getListaMetodiParametriLaboratorio() {
+        return listaMetodiParametriLaboratorio;
+    }
+
+    /**
+     * @param listaMetodiParametriLaboratorio the
+     * listaMetodiParametriLaboratorio to set
+     */
+    public void setListaMetodiParametriLaboratorio(EsameMetodoExtModel[] listaMetodiParametriLaboratorio) {
+        this.listaMetodiParametriLaboratorio = listaMetodiParametriLaboratorio;
+    }
+
+    /**
+     * @return the listaStruttura
+     */
+    public StrutturaAmministrativaModel[] getListaStruttura() {
+        return listaStruttura;
+    }
+
+    /**
+     * @param listaStruttura the listaStruttura to set
+     */
+    public void setListaStruttura(StrutturaAmministrativaModel[] listaStruttura) {
+        this.listaStruttura = listaStruttura;
+    }
+
+    /**
+     * @return the boolDipartimentoInserito
+     */
+    public boolean isBoolDipartimentoInserito() {
+        return boolDipartimentoInserito;
+    }
+
+    /**
+     * @param boolDipartimentoInserito the boolDipartimentoInserito to set
+     */
+    public void setBoolDipartimentoInserito(boolean boolDipartimentoInserito) {
+        this.boolDipartimentoInserito = boolDipartimentoInserito;
+    }
+
+    /**
+     * @return the listaEsameMetodoMatrice
+     */
+    public EsameMetodoMatriceDTOModel[] getListaEsameMetodoMatrice() {
+        return listaEsameMetodoMatrice;
+    }
+
+    /**
+     * @param listaEsameMetodoMatrice the listaEsameMetodoMatrice to set
+     */
+    public void setListaEsameMetodoMatrice(EsameMetodoMatriceDTOModel[] listaEsameMetodoMatrice) {
+        this.listaEsameMetodoMatrice = listaEsameMetodoMatrice;
+    }
+
+    /**
+     * @return the boolTablePre
+     */
+    public boolean isBoolTablePre() {
+        return boolTablePre;
+    }
+
+    /**
+     * @param boolTablePre the boolTablePre to set
+     */
+    public void setBoolTablePre(boolean boolTablePre) {
+        this.boolTablePre = boolTablePre;
+    }
+
+    /**
+     * @return the listaMatriciDisponibili
+     */
+    public List<MatriceModel> getListaMatriciDisponibili() {
+        return listaMatriciDisponibili;
+    }
+
+    /**
+     * @param listaMatriciDisponibili the listaMatriciDisponibili to set
+     */
+    public void setListaMatriciDisponibili(List<MatriceModel> listaMatriciDisponibili) {
+        this.listaMatriciDisponibili = listaMatriciDisponibili;
+    }
+
+    /**
+     * @return the listaMatriciDisponibiliMod
+     */
+    public List<MatriceModel> getListaMatriciDisponibiliMod() {
+        return listaMatriciDisponibiliMod;
+    }
+
+    /**
+     * @param listaMatriciDisponibiliMod the listaMatriciDisponibiliMod to set
+     */
+    public void setListaMatriciDisponibiliMod(List<MatriceModel> listaMatriciDisponibiliMod) {
+        this.listaMatriciDisponibiliMod = listaMatriciDisponibiliMod;
+    }
+
+    /**
+     * @return the listaMatriciSelezionate
+     */
+    public List<MatriceModel> getListaMatriciSelezionate() {
+        return listaMatriciSelezionate;
+    }
+
+    /**
+     * @param listaMatriciSelezionate the listaMatriciSelezionate to set
+     */
+    public void setListaMatriciSelezionate(List<MatriceModel> listaMatriciSelezionate) {
+        this.listaMatriciSelezionate = listaMatriciSelezionate;
+    }
+
+    /**
+     * @return the listaMatriciSelezionateMod
+     */
+    public List<MatriceModel> getListaMatriciSelezionateMod() {
+        return listaMatriciSelezionateMod;
+    }
+
+    /**
+     * @param listaMatriciSelezionateMod the listaMatriciSelezionateMod to set
+     */
+    public void setListaMatriciSelezionateMod(List<MatriceModel> listaMatriciSelezionateMod) {
+        this.listaMatriciSelezionateMod = listaMatriciSelezionateMod;
+    }
+
+    /**
+     * @return the boolGestioneParametri
+     */
+    public boolean isBoolGestioneParametri() {
+        return boolGestioneParametri;
+    }
+
+    /**
+     * @param boolGestioneParametri the boolGestioneParametri to set
+     */
+    public void setBoolGestioneParametri(boolean boolGestioneParametri) {
+        this.boolGestioneParametri = boolGestioneParametri;
+    }
+
+    /**
+     * @return the listaMatriciMetodo
+     */
+    public List<EsameMetodoExtModel> getListaMatriciMetodo() {
+        return listaMatriciMetodo;
+    }
+
+    /**
+     * @param listaMatriciMetodo the listaMatriciMetodo to set
+     */
+    public void setListaMatriciMetodo(List<EsameMetodoExtModel> listaMatriciMetodo) {
+        this.listaMatriciMetodo = listaMatriciMetodo;
+    }
+
+    /**
+     * @return the listaTipologieFasi
+     */
+    public TipologiaFaseModel[] getListaTipologieFasi() {
+        return listaTipologieFasi;
+    }
+
+    /**
+     * @param listaTipologieFasi the listaTipologieFasi to set
+     */
+    public void setListaTipologieFasi(TipologiaFaseModel[] listaTipologieFasi) {
+        this.listaTipologieFasi = listaTipologieFasi;
+    }
+
+    /**
+     * @return the listaFasiAssociabili
+     */
+    public FaseLabDTOModel[] getListaFasiAssociabili() {
+        return listaFasiAssociabili;
+    }
+
+    /**
+     * @param listaFasiAssociabili the listaFasiAssociabili to set
+     */
+    public void setListaFasiAssociabili(FaseLabDTOModel[] listaFasiAssociabili) {
+        this.listaFasiAssociabili = listaFasiAssociabili;
+    }
+
+    /**
+     * @return the idFaseSelezionata
+     */
+    public long getIdFaseSelezionata() {
+        return idFaseSelezionata;
+    }
+
+    /**
+     * @param idFaseSelezionata the idFaseSelezionata to set
+     */
+    public void setIdFaseSelezionata(long idFaseSelezionata) {
+        this.idFaseSelezionata = idFaseSelezionata;
+    }
+
+    /**
+     * @return the faseObbligatoria
+     */
+    public boolean isFaseObbligatoria() {
+        return faseObbligatoria;
+    }
+
+    /**
+     * @param faseObbligatoria the faseObbligatoria to set
+     */
+    public void setFaseObbligatoria(boolean faseObbligatoria) {
+        this.faseObbligatoria = faseObbligatoria;
+    }
+
+    /**
+     * @return the idTipologiaSelezionata
+     */
+    public long getIdTipologiaSelezionata() {
+        return idTipologiaSelezionata;
+    }
+
+    /**
+     * @param idTipologiaSelezionata the idTipologiaSelezionata to set
+     */
+    public void setIdTipologiaSelezionata(long idTipologiaSelezionata) {
+        this.idTipologiaSelezionata = idTipologiaSelezionata;
+    }
+
+    /**
+     * @return the boolCollapsedFldNuovoParametro
+     */
+    public boolean isBoolCollapsedFldNuovoParametro() {
+        return boolCollapsedFldNuovoParametro;
+    }
+
+    /**
+     * @param boolCollapsedFldNuovoParametro the boolCollapsedFldNuovoParametro
+     * to set
+     */
+    public void setBoolCollapsedFldNuovoParametro(boolean boolCollapsedFldNuovoParametro) {
+        this.boolCollapsedFldNuovoParametro = boolCollapsedFldNuovoParametro;
+    }
+
+    /**
+     * @return the listaParametriFasePreparativa
+     */
+    public FaseLabMetodoDTOModel[] getListaParametriFasePreparativa() {
+        return listaParametriFasePreparativa;
+    }
+
+    /**
+     * @param listaParametriFasePreparativa the listaParametriFasePreparativa to
+     * set
+     */
+    public void setListaParametriFasePreparativa(FaseLabMetodoDTOModel[] listaParametriFasePreparativa) {
+        this.listaParametriFasePreparativa = listaParametriFasePreparativa;
+    }
+
+    /**
+     * @return the listaParametriFaseAnalitica
+     */
+    public FaseLabMetodoDTOModel[] getListaParametriFaseAnalitica() {
+        return listaParametriFaseAnalitica;
+    }
+
+    /**
+     * @param listaParametriFaseAnalitica the listaParametriFaseAnalitica to set
+     */
+    public void setListaParametriFaseAnalitica(FaseLabMetodoDTOModel[] listaParametriFaseAnalitica) {
+        this.listaParametriFaseAnalitica = listaParametriFaseAnalitica;
+    }
+
+    /**
+     * @return the listaProfili
+     */
+    public ProfiloAnaliticoModel[] getListaProfili() {
+        return listaProfili;
+    }
+
+    /**
+     * @param listaProfili the listaProfili to set
+     */
+    public void setListaProfili(ProfiloAnaliticoModel[] listaProfili) {
+        this.listaProfili = listaProfili;
+    }
+
+    /**
+     * @return the idStrutturaDaCarta
+     */
+    public Long getIdStrutturaDaCarta() {
+        return idStrutturaDaCarta;
+    }
+
+    /**
+     * @param idStrutturaDaCarta the idStrutturaDaCarta to set
+     */
+    public void setIdStrutturaDaCarta(Long idStrutturaDaCarta) {
+        this.idStrutturaDaCarta = idStrutturaDaCarta;
+    }
+
+    /**
+     * @return the matriceDaCarta
+     */
+    public Long getMatriceDaCarta() {
+        return matriceDaCarta;
+    }
+
+    /**
+     * @param matriceDaCarta the matriceDaCarta to set
+     */
+    public void setMatriceDaCarta(Long matriceDaCarta) {
+        this.matriceDaCarta = matriceDaCarta;
+    }
+
+    /**
+     * @return the denominazioneStrutturaSelezionata
+     */
+    public String getDenominazioneStrutturaSelezionata() {
+        return denominazioneStrutturaSelezionata;
+    }
+
+    /**
+     * @param denominazioneStrutturaSelezionata the
+     * denominazioneStrutturaSelezionata to set
+     */
+    public void setDenominazioneStrutturaSelezionata(String denominazioneStrutturaSelezionata) {
+        this.denominazioneStrutturaSelezionata = denominazioneStrutturaSelezionata;
+    }
+
+    /**
+     * @return the descrizioneMatriceSelezionata
+     */
+    public String getDescrizioneMatriceSelezionata() {
+        return descrizioneMatriceSelezionata;
+    }
+
+    /**
+     * @param descrizioneMatriceSelezionata the descrizioneMatriceSelezionata to
+     * set
+     */
+    public void setDescrizioneMatriceSelezionata(String descrizioneMatriceSelezionata) {
+        this.descrizioneMatriceSelezionata = descrizioneMatriceSelezionata;
+    }
+
+}
