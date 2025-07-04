@@ -1,0 +1,846 @@
+/*
+ * To change this license header, choose License Headers in Project Properties.
+ * To change this template file, choose Tools | Templates
+ * and open the template in the editor.
+ */
+package it.cidsoftware.sita.bean.lims.tabelleBase;
+
+import com.cid.sita.bd.Aliquota4CertificatoAnaliticoBD;
+import com.cid.sita.bd.AttivitaRisorsaBD;
+import com.cid.sita.bd.AttivitaRisorsaBDException;
+import com.cid.sita.bd.CmmCfgPropertiesBD;
+import com.cid.sita.bd.EsameBDException;
+import com.cid.sita.bd.MatriceBD;
+import com.cid.sita.bd.ReportsBD;
+import com.cid.sita.bd.StrutturaAmministrativaBD;
+import com.cid.sita.bd.StrutturaAmministrativaBDException;
+import com.cid.sita.bd.aliquota4certificatoanalitico.Aliquota4CertificatoAnaliticoDTOModel;
+import com.cid.sita.bd.aliquota4certificatoanalitico.Aliquota4CertificatoAnaliticoModel;
+import com.cid.sita.bd.attivitarisorsa.CertificatoAnaliticoDTOModel;
+import com.cid.sita.bd.cmmcfgproperties.CfgPropertiesDtoModel;
+import com.cid.sita.bd.attivitarisorsa.EsameDTOModel;
+import com.cid.sita.bd.esame.EsameMetodoExtModel;
+import com.cid.sita.bd.esame.EsameModel;
+import com.cid.sita.bd.matrice.MatriceModel;
+import com.cid.sita.bd.reports.ReportsModel;
+import com.cid.sita.bd.strutturaamministrativa.StrutturaAmministrativaModel;
+import com.cid.sita.lims.dto.StrutturaAmministrativa;
+import it.cidsoftware.sita.bean.lims.AttivitaDiCampoBean;
+import it.cidsoftware.sita.faces.util.AbstractPageBean;
+import it.cidsoftware.sita.faces.util.JSFUtils;
+import it.cidsoftware.sita.lims.utility.StampeUtil;
+import java.io.ByteArrayInputStream;
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Base64;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+import javax.annotation.PostConstruct;
+import javax.faces.application.FacesMessage;
+import javax.faces.bean.ManagedBean;
+import javax.faces.bean.ManagedProperty;
+import javax.faces.bean.ViewScoped;
+import javax.faces.context.FacesContext;
+import javax.faces.model.SelectItem;
+import javax.servlet.ServletContext;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpSession;
+import org.json.JSONObject;
+import org.primefaces.event.SelectEvent;
+import org.primefaces.model.DefaultStreamedContent;
+import org.primefaces.model.StreamedContent;
+import javax.faces.event.AjaxBehaviorEvent;
+import org.primefaces.PrimeFaces;
+
+/**
+ *
+ * @author Ciro Della Bruna
+ */
+@ManagedBean(name = "cartaServiziBean")
+@ViewScoped
+public class CartaServiziBean extends AbstractPageBean implements Serializable {
+
+    @ManagedProperty(value = "#{insModProveBean}")
+    private InsModProveBean insModProveBean;
+
+    public void setInsModProveBean(InsModProveBean insModProveBean) {
+        this.insModProveBean = insModProveBean;
+    }
+
+    private HttpSession session = JSFUtils.getSession();
+
+    private boolean boolInserimento;
+    private boolean boolModifica;
+
+    private List<EsameDTOModel> listaRicerca = new ArrayList<>();
+    private List<CertificatoAnaliticoDTOModel> listaPacchetti = new ArrayList<>();
+
+    private boolean boolGestisciPannelloMatrici = true;
+
+    private EsameDTOModel esameNew = new EsameDTOModel();
+    private EsameDTOModel selectedMatriceModel = new EsameDTOModel();
+
+    private List<Long> matriciSelezionate;
+    //private List<SelectItem> matriciOptions;
+    private Map<String, Long> matriciOptions;
+
+    private List<MatriceModel> lista = new ArrayList<>();
+    private String strutturaSelezionata;
+
+    //private List<SelectItem> matriciDisponibili;
+    private List<MatriceModel> matriciDisponibili;
+
+    private Map<String, Long> mappaStrutture = new HashMap<>();
+
+    private String nuovaDescrizione;
+    private Long matriceSelezionata; // oppure String se idMatrice è stringa
+
+    private String struttura;
+
+    private List<Aliquota4CertificatoAnaliticoDTOModel> aliquota4CertificatoAnalitico = new ArrayList<>();
+    private List<Aliquota4CertificatoAnaliticoDTOModel> listaSottoPacchetti = new ArrayList<>();
+
+    public List<Aliquota4CertificatoAnaliticoDTOModel> sottopacchetti;
+
+    public List<Aliquota4CertificatoAnaliticoDTOModel> getSottopacchettiById(Object id) {
+        if (id == null) {
+            System.out.println("[DEBUG] getSottopacchettiById: id è null, ritorno lista vuota");
+            return Collections.emptyList();
+        }
+        Long key = null;
+        try {
+            if (id instanceof String) {
+                key = Long.parseLong((String) id);
+                System.out.println("[DEBUG] getSottopacchettiById: id String convertito in Long = " + key);
+            } else if (id instanceof Long) {
+                key = (Long) id;
+                System.out.println("[DEBUG] getSottopacchettiById: id è già Long = " + key);
+            } else {
+                key = Long.parseLong(id.toString());
+                System.out.println("[DEBUG] getSottopacchettiById: id convertito da toString() in Long = " + key);
+            }
+        } catch (NumberFormatException e) {
+            System.out.println("[ERROR] getSottopacchettiById: id non convertibile a Long: " + id + " - eccezione: " + e.getMessage());
+            return Collections.emptyList();
+        }
+
+        List<Aliquota4CertificatoAnaliticoDTOModel> list = sottopacchettiPerPacchetto.get(key);
+        if (list == null) {
+            System.out.println("[DEBUG] getSottopacchettiById: nessun sottopacchetto trovato per chiave = " + key);
+            return Collections.emptyList();
+        } else {
+            System.out.println("[DEBUG] getSottopacchettiById: trovati " + list.size() + " sottopacchetti per chiave = " + key);
+            return list;
+        }
+    }
+
+    public List<Aliquota4CertificatoAnaliticoDTOModel> getSottopacchetti() {
+        return sottopacchetti;
+    }
+
+    public void setSottopacchetti(List<Aliquota4CertificatoAnaliticoDTOModel> sottopacchetti) {
+        this.sottopacchetti = sottopacchetti;
+    }
+
+    public Map<Long, List<Aliquota4CertificatoAnaliticoDTOModel>> sottopacchettiPerPacchetto = new HashMap<>();
+
+    public Map<Long, List<Aliquota4CertificatoAnaliticoDTOModel>> getSottopacchettiPerPacchetto() {
+        return sottopacchettiPerPacchetto;
+    }
+
+    @PostConstruct
+    public void initialize() {
+
+        EsameDTOModel esame = new EsameDTOModel();
+        if (matriciDisponibili != null) {
+            matriceSelezionataList = new ArrayList<>(matriciDisponibili);
+        } else {
+            matriceSelezionataList = new ArrayList<>();
+        }
+        matriciOptions = new LinkedHashMap<>();
+        for (MatriceModel m : lista) {
+            matriciOptions.put(m.getDescrizione(), m.getIdMatrice());
+        }
+
+        if (!listaRicerca.isEmpty()) {
+            selectedMatriceModel = listaRicerca.get(0);
+        }
+
+        matriciDisponibili = new ArrayList<>();
+        caricaMatrici();
+        caricaMatricePrincipale();
+        caricaDipartimenti();
+        caricaSottoPacchetti();   // <-- inizializza la mappa usando listaPacchetti
+
+    }
+
+    public void abilitaMatriceAdd() {
+        System.out.println("stampa booleano---------> " + boolGestisciPannelloMatrici);
+        setBoolGestisciPannelloMatrici(true);
+    }
+
+    public void caricaMatrici() {
+        try {
+            if (idStruttura > 0) {
+                boolDipartimentoInserito = true;
+            }
+            System.out.println("?? Struttura selezionata (idStruttura): " + idStruttura);
+
+            MatriceBD m = new MatriceBD();
+            MatriceModel[] list = m.caricaMatriciCartaDeiServizi(0, idStruttura, JSFUtils.getLoggedUser());
+
+            matriciDisponibili = new ArrayList<>();
+            matriceSelezionataList = new ArrayList<>();
+
+            if (list != null && list.length > 0) {
+                System.out.println("? Matrici ricevute: " + list.length);
+                for (MatriceModel mm : list) {
+                    if (!Boolean.TRUE.equals(mm.getFlagMatricePrincipale())) {
+                        matriciDisponibili.add(mm);
+                        matriceSelezionataList.add(mm);
+                    } else {
+                        System.out.println("? Esclusa matrice ID: " + mm.getIdMatrice() + " (principale)");
+                    }
+                }
+            } else {
+                System.out.println("?? Nessuna matrice trovata per la struttura.");
+            }
+
+        } catch (Exception e) {
+            System.out.println("? Errore durante il caricamento delle matrici:");
+            e.printStackTrace();
+        }
+    }
+
+    public void caricaMatricePrincipale() {
+        try {
+            MatriceBD bd = new MatriceBD();
+            MatriceModel[] list = bd.caricaMatricePrincipale(JSFUtils.getLoggedUser());
+
+            matriciOptions = new LinkedHashMap<>();
+            if (list != null) {
+                for (MatriceModel mm : list) {
+                    // Usa getIdMatrice() per id e getDescrizione() per label
+                    matriciOptions.put(mm.getDescrizione(), mm.getIdMatrice());
+                }
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            FacesContext.getCurrentInstance().addMessage(null,
+                    new FacesMessage(FacesMessage.SEVERITY_ERROR, "Errore", "Impossibile caricare le matrici principali."));
+        }
+    }
+
+    private String trovaDescrizionePerId(Long id) {
+        for (Map.Entry<String, Long> entry : matriciOptions.entrySet()) {
+            if (entry.getValue().equals(id)) {
+                return entry.getKey();
+            }
+        }
+        return null;
+    }
+
+    public void aggiungiMatrice() {
+        System.out.println(">>> Aggiunta nuova matrice da descrizione libera");
+
+        if (nuovaDescrizione != null && !nuovaDescrizione.trim().isEmpty()) {
+            MatriceModel nuova = new MatriceModel();
+            nuova.setDescrizione(nuovaDescrizione.trim());
+
+            // Puoi generare un ID fittizio (opzionale) oppure lasciarlo null se gestito dal DB
+            // nuova.setIdMatrice(...);
+            matriciDisponibili.add(nuova);
+            matriceSelezionataList.add(nuova);
+            nuovaDescrizione = null;
+
+            System.out.println("? Aggiunta: " + nuova.getDescrizione());
+        } else {
+            System.out.println("? Descrizione vuota, nessuna matrice aggiunta");
+        }
+
+        // Debug
+        System.out.println("=== Matrici disponibili aggiornate ===");
+        for (MatriceModel m : matriciDisponibili) {
+            System.out.println("- " + m.getDescrizione());
+        }
+    }
+
+    public String goToInsModProve() {
+        System.out.println("Navigazione a insModProve.xhtml con idStruttura=" + idStruttura + " idMatrice=" + idMatrice);
+        FacesContext.getCurrentInstance().getExternalContext().getSessionMap().put("idStruttura", idStruttura);
+        FacesContext.getCurrentInstance().getExternalContext().getSessionMap().put("idMatrice", idMatrice);
+        session.setAttribute("selected", null);
+        boolInserimento = true;
+        return "/lims/tabelle_base/insModProve.xhtml?faces-redirect=true";
+    }
+
+    public String goToInsModPacchetti() {
+        System.out.println("Navigazione a insModPacchetti.xhtml");
+        return "/lims/tabelle_base/insModPacchetti.xhtml?faces-redirect=true";
+    }
+
+    private MatriceModel matriceSelezionataObj;
+
+    public MatriceModel getMatriceSelezionataObj() {
+        if (matriceSelezionata == null || matriciDisponibili == null) {
+            return null;
+        }
+        for (MatriceModel m : matriciDisponibili) {
+            if (matriceSelezionata.equals(m.getIdMatrice())) {
+                return m;
+            }
+        }
+        return null;
+    }
+
+    public void setMatriceSelezionataObj(MatriceModel matriceSelezionataObj) {
+        this.matriceSelezionataObj = matriceSelezionataObj;
+    }
+
+    public static final Map<Number, String> mappaDescrizioniCategoria = new HashMap<>();
+
+    static {
+        mappaDescrizioniCategoria.put(1, "BIOLOGICO");
+        mappaDescrizioniCategoria.put(3, "CHIMICO");
+        mappaDescrizioniCategoria.put(7, "FISICO");
+    }
+
+    public String getDescrizioneCategoriaPerPacchetto(CertificatoAnaliticoDTOModel pacchetto) {
+        Number idCategoria = pacchetto.getIdCategoriaEsame();
+        System.out.println("DEBUG >>> ID Categoria: " + idCategoria + " | Tipo: " + (idCategoria != null ? idCategoria.getClass().getSimpleName() : "null"));
+
+        if (idCategoria == null) {
+            return "Categoria sconosciuta";
+        }
+
+        // Converti a Integer per confronto corretto
+        Integer chiave = idCategoria.intValue();
+
+        return mappaDescrizioniCategoria.getOrDefault(chiave, "Categoria sconosciuta");
+    }
+
+    public void caricaSottoPacchetti() {
+        try {
+            Aliquota4CertificatoAnaliticoBD bd = new Aliquota4CertificatoAnaliticoBD();
+            Aliquota4CertificatoAnaliticoDTOModel[] risultati = bd.cercaAliquoteLaboratorio(0, 0, "", JSFUtils.getLoggedUser());
+            listaSottoPacchetti.clear();
+            for (Aliquota4CertificatoAnaliticoDTOModel r : risultati) {
+                listaSottoPacchetti.add(r);
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    public List<Aliquota4CertificatoAnaliticoDTOModel> getListaSottoPacchetti() {
+        return listaSottoPacchetti;
+    }
+
+    public List<Aliquota4CertificatoAnaliticoDTOModel> caricaSottoPacchettiPerPacchetto(long idCertificatoAnalitico) {
+        try {
+            Aliquota4CertificatoAnaliticoBD bd = new Aliquota4CertificatoAnaliticoBD();
+            Aliquota4CertificatoAnaliticoDTOModel[] risultati = bd.cercaAliquoteLaboratorio(idCertificatoAnalitico, 0, "", JSFUtils.getLoggedUser());
+            return Arrays.asList(risultati);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return Collections.emptyList();
+        }
+    }
+
+    public void onMatriceSelect(SelectEvent<MatriceModel> event) {
+        try {
+            MatriceModel selezionata = event.getObject();
+
+            // Parametri reali
+            long idDipartimento = 0; // oppure ricavalo se ne hai uno associato
+            this.idMatrice = selezionata.getIdMatrice();
+            String codiceCategoria = ""; // puoi passare "" o un valore filtrante se ti serve
+            String chi = JSFUtils.getLoggedUser();
+            System.out.println(selezionata.getIdMatrice());
+            // Carica le prove dinamicamente
+            AttivitaRisorsaBD bd = new AttivitaRisorsaBD();
+            EsameDTOModel[] prove = bd.caricaProveSingole(idStruttura, idMatrice, "", JSFUtils.getLoggedUser());
+            CertificatoAnaliticoDTOModel[] pacchetti = bd.caricaPacchettiProve(idStruttura, idMatrice, "", "", JSFUtils.getLoggedUser());
+
+            // Pulisce e aggiorna la lista
+            listaRicerca = new ArrayList<>();
+            if (prove != null && prove.length > 0) {
+                listaRicerca.addAll(Arrays.asList(prove));
+                System.out.println("per questa matrice:" + listaRicerca);
+            }
+
+            listaPacchetti = new ArrayList<>();
+            System.out.println("prima");
+            if (pacchetti != null && pacchetti.length > 0) {
+                getListaPacchetti().addAll(Arrays.asList(pacchetti));
+
+                System.out.println("Pacchetti trovati: " + pacchetti.length);
+                /*
+                for (int i = 0; i < pacchetti.length; i++) {
+                    CertificatoAnaliticoDTOModel p = pacchetti[i];
+                    System.out.println("Pacchetto #" + i + ":");
+                    System.out.println(" - ID: " + p.getNome());
+                    System.out.println(" - Descrizione: " + p.getDescrizione());
+                    System.out.println(" - Codice CAS: " + p.getCodice());
+                    System.out.println(" - Categoria: " + p.getCodiceCategoria());
+                    // Aggiungi altri campi se utili
+                }
+                 */
+                for (CertificatoAnaliticoDTOModel pacchetto : listaPacchetti) {
+                    List<Aliquota4CertificatoAnaliticoDTOModel> sottopacchetti = caricaSottoPacchettiPerPacchetto(pacchetto.getIdCertificatoAnalitico());
+                    sottopacchettiPerPacchetto.put(Long.valueOf(pacchetto.getIdCertificatoAnalitico()), sottopacchetti);
+
+                    System.out.println("Pacchetto ID: " + pacchetto.getIdCertificatoAnalitico());
+                    System.out.println("Numero sottopacchetti: " + (sottopacchetti != null ? sottopacchetti.size() : 0));
+                    System.out.println(">> Inseriti " + sottopacchetti.size() + " sottopacchetti in mappa con chiave " + pacchetto.getIdCertificatoAnalitico());
+                    System.out.println(">> Mappa completa: " + sottopacchettiPerPacchetto.keySet());
+
+                    if (sottopacchetti != null) {
+                        for (Aliquota4CertificatoAnaliticoDTOModel sp : sottopacchetti) {
+                            System.out.println(" - Sottopacchetto: " + sp.getDescrizioneCategoriaEsame());
+                            System.out.println(" - Sottopacchetto: " + sp.getCodice());
+                        }
+                    }
+                }
+
+            } else {
+                System.out.println("Nessun pacchetto trovato.");
+            }
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    public void onMatriceSelectFromMenu(AjaxBehaviorEvent event) {
+        MatriceModel selezionata = getMatriceSelezionataOggetto();
+        System.out.println("Matrice selezionata (evento): " + (selezionata != null ? selezionata.getDescrizione() : "null"));
+    }
+
+    private List<MatriceModel> matriceSelezionataList = new ArrayList<>();
+
+    public List<MatriceModel> getMatriceSelezionataList() {
+        return matriceSelezionataList;
+    }
+
+    public void setMatriceSelezionataList(List<MatriceModel> matriceSelezionataList) {
+        this.matriceSelezionataList = matriceSelezionataList;
+    }
+
+    public void onMatriceSelectFromMenu() {
+        MatriceModel selezionata = getMatriceSelezionataOggetto();
+        if (selezionata != null) {
+            matriceSelezionataList = Collections.singletonList(selezionata);
+        } else {
+            //matriceSelezionataList = new ArrayList<>(); // lista vuota
+            matriceSelezionataList = new ArrayList<>(matriciDisponibili);
+        }
+        System.out.println("? onMatriceSelectFromMenu() chiamato");
+        System.out.println("?? Matrice selezionata (matriceSelezionata): " + matriceSelezionata);
+    }
+
+// getter e setter
+    public Long getMatriceSelezionata() {
+        return matriceSelezionata;
+    }
+
+    public void setMatriceSelezionata(Long matriceSelezionata) {
+        this.matriceSelezionata = matriceSelezionata;
+    }
+
+    public MatriceModel getMatriceSelezionataOggetto() {
+        if (matriceSelezionata == null) {
+            return null;
+        }
+        return matriciDisponibili.stream()
+                .filter(m -> m.getIdMatrice() == matriceSelezionata.longValue()) // confronto tra long primitivi
+                .findFirst()
+                .orElse(null);
+    }
+
+    //*********** 1/07 nuove mod Luigi
+    public String modifica(Long idEsame) {
+        System.out.println("Navigazione a insModProve.xhtml con idStruttura=" + idStruttura + " idMatrice=" + idMatrice);
+        FacesContext.getCurrentInstance().getExternalContext().getSessionMap().put("idStruttura", idStruttura);
+        FacesContext.getCurrentInstance().getExternalContext().getSessionMap().put("idMatrice", idMatrice);
+        session.setAttribute("selected", null);
+        System.out.println("MODIFICA chiamata con idEsame: " + idEsame);
+        boolModifica = true;
+        return "insModProve.xhtml?faces-redirect=true&idEsame=" + idEsame + "&editMode=2";
+    }
+    
+ 
+
+    //gestione caricamento Struttura Dinamicamente 01/07/2025 CIRO**************
+    private StrutturaAmministrativaModel[] listaStrutturaCartaServizi = new StrutturaAmministrativaModel[0];
+    private boolean boolDipartimentoInserito = false;
+
+    public void caricaDipartimenti() {
+
+        StrutturaAmministrativaBD strAmmBD = new StrutturaAmministrativaBD();
+        try {
+            listaStrutturaCartaServizi = strAmmBD.caricaDipartimenti(JSFUtils.getLoggedUser());
+        } catch (StrutturaAmministrativaBDException ex) {
+            Logger.getLogger(AttivitaDiCampoBean.class.getName()).log(Level.SEVERE, null, ex);
+        }
+    }
+
+    //*****************************************************************gestione Stampa Ciro 24/06
+    private ServletContext _servletContext;
+    private StreamedContent downlPdfCartaServizi;
+
+    private long idMatrice;
+    private long idStruttura;
+
+    public String scriviFileFromJson(String json, String path) {
+        InputStream is = null;
+        String pathTemporaneo = "";
+        JSONObject obj = new JSONObject(json);
+        if (obj != null) {
+            String base64 = obj.getString("base64");
+            String filename = obj.getString("filename");
+
+            String file = "";
+            if (filename != null && filename.matches("(.*)_v(.*).")) {
+                file = filename.substring(0, filename.indexOf("_v")) + filename.substring(filename.lastIndexOf("."));
+            } else {
+                file = filename;
+            }
+
+            File f = new File(path);
+            if (!f.exists()) {
+                f.mkdirs();
+            }
+
+            if (base64 != null && !"".equals(base64)) {
+                byte[] decodedBytes = Base64.getDecoder().decode(base64.substring(base64.indexOf("base64,") + 7));
+                is = new ByteArrayInputStream(decodedBytes);
+                copyFile(file, is, path);
+                pathTemporaneo = path + file;
+            }
+        }
+        return pathTemporaneo;
+
+    }
+
+    public void copyFile(String fileName, InputStream in, String destination) {
+        try {
+
+            OutputStream out = new FileOutputStream(new File(destination + fileName));
+            int read = 0;
+            byte[] bytes = new byte[1024];
+            while ((read = in.read(bytes)) != -1) {
+                out.write(bytes, 0, read);
+            }
+            in.close();
+            out.flush();
+            out.close();
+//            info("Operazione Avvenuta Con Successo");
+//            caricaFile();
+        } catch (IOException e) {
+            System.out.println(e.getMessage());
+        }
+    }
+
+    private byte[] generaPdfCartaServizi() throws Exception {
+
+        byte[] pdfData = null;
+
+        HttpServletRequest req = (HttpServletRequest) FacesContext.getCurrentInstance().getExternalContext().getRequest();
+
+        if (this.getServletContext() == null && req != null) {
+            System.out.println("sono in definizione servletContext");
+            this.setServletContext(req.getServletContext());
+        }
+
+        CmmCfgPropertiesBD propBD = new CmmCfgPropertiesBD();
+
+        CfgPropertiesDtoModel[] checkProp;
+        String keyProperties = FacesContext.getCurrentInstance().getExternalContext().getInitParameter("APPLICAZIONE");
+        checkProp = propBD.cerca("app_azienda", keyProperties, "", "S", JSFUtils.getLoggedUser());
+        long aziendaApplicazione = Long.parseLong(checkProp[0].getPropValue());
+        checkProp = propBD.riCerca(aziendaApplicazione, "report", "ReportCartaServizi", "", "S", JSFUtils.getLoggedUser());
+        if (checkProp == null || checkProp.length == 0) {
+            error("Parametro di configurazione path temporaneo non configurato.");
+            return null;
+        }
+
+        String path = checkProp[0].getPropValue();
+        File f = new File(path);
+        if (!f.exists()) {
+            f.mkdirs();
+        }
+
+        //devo ottenere l'ultima versione del jasper 1 e jasper 2
+        checkProp = propBD.riCerca(aziendaApplicazione, "report", "ReportCartaServizi", "", "S", JSFUtils.getLoggedUser());
+        System.out.println("");
+        if (checkProp == null || checkProp.length == 0) {
+            error("Parametro di configurazione report Carta Servizi non configurato.");
+            return null;
+        }
+
+        String verbale = checkProp[0].getPropValue();
+
+        ReportsBD repBD = new ReportsBD();
+
+        ReportsModel[] checkReport = repBD.cerca(verbale, "", "", "A", "N", JSFUtils.getLoggedUser());
+        if (checkReport == null || checkReport.length == 0) {
+            error("Nessun report " + verbale + " attivo presente.");
+            return null;
+        }
+
+        ReportsModel soprCampAcquaBalneazione = checkReport[0];
+
+        String json1 = repBD.ottieniBase64File(soprCampAcquaBalneazione.getIdReports(), JSFUtils.getLoggedUser());
+        System.out.println("STAMPA OTTIENI BASE 64 FILE-----------------------> " + json1);
+
+        String templatePath = scriviFileFromJson(json1, path);
+
+        System.out.println("STAMPA TEMPLATEPATH-----------------------> " + templatePath);
+        pdfData = StampeUtil.doStampaCartaServiziReport(_servletContext, templatePath, idMatrice, idStruttura, "", null);
+
+        File file = new File(templatePath);
+
+        if (file.exists()) {
+            file.delete();
+        }
+        return pdfData;
+
+    }
+
+    public StreamedContent getDownlPdfCartaServizi() throws FileNotFoundException {
+
+        try {
+
+            byte[] data = generaPdfCartaServizi();
+
+            ByteArrayInputStream arrayInputStream = new ByteArrayInputStream(data);
+
+            downlPdfCartaServizi = DefaultStreamedContent.builder().contentType("application/pdf").name("Carta Servizi" + ".pdf").stream(() -> arrayInputStream).build();
+        } catch (Exception e) {
+            e.printStackTrace();
+            throw new FileNotFoundException("Errore nella generazione del PDF");
+        }
+
+        return downlPdfCartaServizi;
+    }
+
+    public void setDownlPdfCartaServizi(StreamedContent downlPdfCartaServizi) {
+        this.downlPdfCartaServizi = downlPdfCartaServizi;
+    }
+
+    //-------------------------------------------------------------------------01/07/2025 Ciro
+    public void generaStampaCartaServizi(MatriceModel model) {
+
+        idStruttura = model.getIdStruttura();
+        idMatrice = model.getIdMatrice();
+
+        System.out.println("idMatrice------------> " + model.getIdMatrice());
+        System.out.println("idStruttura------------> " + model.getIdStruttura());
+        PrimeFaces.current().executeScript("functionCartaServizi()");
+
+    }
+
+    //********************************************fine gestione Stampa Ciro 24/06/2025
+    //---------------------------------Set&Get----------------------------------
+    public String getNuovaDescrizione() {
+        return nuovaDescrizione;
+    }
+
+    public void setNuovaDescrizione(String nuovaDescrizione) {
+        this.nuovaDescrizione = nuovaDescrizione;
+    }
+
+    public Map<String, Long> getMatriciOptions() {
+        return matriciOptions;
+    }
+
+    public void setMatriciOptions(Map<String, Long> matriciOptions) {
+        this.matriciOptions = matriciOptions;
+    }
+
+    public List<Long> getMatriciSelezionate() {
+        return matriciSelezionate;
+    }
+
+    public void setMatriciSelezionate(List<Long> matriciSelezionate) {
+        this.matriciSelezionate = matriciSelezionate;
+    }
+
+    /**
+     * @return the listaRicerca
+     */
+    public List<EsameDTOModel> getListaRicerca() {
+        return listaRicerca;
+    }
+
+    /**
+     * @param listaRicerca the listaRicerca to set
+     */
+    public void setListaRicerca(List<EsameDTOModel> listaRicerca) {
+        this.listaRicerca = listaRicerca;
+    }
+
+    /**
+     * @return the selectedMatriceModel
+     */
+    public EsameDTOModel getSelectedMatriceModel() {
+        return selectedMatriceModel;
+    }
+
+    /**
+     * @param selectedMatriceModel the selectedMatriceModel to set
+     */
+    public void setSelectedMatriceModel(EsameDTOModel selectedMatriceModel) {
+        this.selectedMatriceModel = selectedMatriceModel;
+    }
+
+    /**
+     * @return the esame
+     */
+    public EsameDTOModel getEsameNew() {
+        return esameNew;
+    }
+
+    /**
+     * @param esame the esame to set
+     */
+    public void setEsameNew(EsameDTOModel esameNew) {
+        this.esameNew = esameNew;
+    }
+
+    /**
+     * @return the boolGestisciPannelloMatrici
+     */
+    public boolean isBoolGestisciPannelloMatrici() {
+        return boolGestisciPannelloMatrici;
+    }
+
+    /**
+     * @param boolGestisciPannelloMatrici the boolGestisciPannelloMatrici to set
+     */
+    public void setBoolGestisciPannelloMatrici(boolean boolGestisciPannelloMatrici) {
+        this.boolGestisciPannelloMatrici = boolGestisciPannelloMatrici;
+    }
+
+    public List<MatriceModel> getLista() {
+        return lista;
+    }
+
+    public void setLista(List<MatriceModel> lista) {
+        this.lista = lista;
+    }
+
+    public String getStrutturaSelezionata() {
+        return strutturaSelezionata;
+    }
+
+    public void setStrutturaSelezionata(String strutturaSelezionata) {
+        this.strutturaSelezionata = strutturaSelezionata;
+    }
+
+    public List<MatriceModel> getMatriciDisponibili() {
+        return matriciDisponibili;
+    }
+
+    public void setMatriciDisponibili(List<MatriceModel> matriciDisponibili) {
+        this.matriciDisponibili = matriciDisponibili;
+    }
+
+    /**
+     * @return the _servletContext
+     */
+    public ServletContext getServletContext() {
+        return _servletContext;
+    }
+
+    /**
+     * @param _servletContext the _servletContext to set
+     */
+    public void setServletContext(ServletContext _servletContext) {
+        this._servletContext = _servletContext;
+    }
+
+    /**
+     * @return the idMatrice
+     */
+    public long getIdMatrice() {
+        return idMatrice;
+    }
+
+    /**
+     * @param idMatrice the idMatrice to set
+     */
+    public void setIdMatrice(long idMatrice) {
+        this.idMatrice = idMatrice;
+    }
+
+    /**
+     * @return the idStruttura
+     */
+    public long getIdStruttura() {
+        return idStruttura;
+    }
+
+    /**
+     * @param idStruttura the idStruttura to set
+     */
+    public void setIdStruttura(long idStruttura) {
+        this.idStruttura = idStruttura;
+    }
+
+    /**
+     * @return the listaPacchetti
+     */
+    public List<CertificatoAnaliticoDTOModel> getListaPacchetti() {
+        return listaPacchetti;
+    }
+
+    /**
+     * @param listaPacchetti the listaPacchetti to set
+     */
+    public void setListaPacchetti(List<CertificatoAnaliticoDTOModel> listaPacchetti) {
+        this.listaPacchetti = listaPacchetti;
+    }
+
+    /**
+     * @return the listaStrutturaCartaServizi
+     */
+    public StrutturaAmministrativaModel[] getListaStrutturaCartaServizi() {
+        return listaStrutturaCartaServizi;
+    }
+
+    /**
+     * @param listaStrutturaCartaServizi the listaStrutturaCartaServizi to set
+     */
+    public void setListaStrutturaCartaServizi(StrutturaAmministrativaModel[] listaStrutturaCartaServizi) {
+        this.listaStrutturaCartaServizi = listaStrutturaCartaServizi;
+    }
+
+    /**
+     * @return the boolDipartimentoInserito
+     */
+    public boolean isBoolDipartimentoInserito() {
+        return boolDipartimentoInserito;
+    }
+
+    /**
+     * @param boolDipartimentoInserito the boolDipartimentoInserito to set
+     */
+    public void setBoolDipartimentoInserito(boolean boolDipartimentoInserito) {
+        this.boolDipartimentoInserito = boolDipartimentoInserito;
+    }
+
+}
