@@ -1,0 +1,298 @@
+<?xml version='1.0' encoding='UTF-8' ?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<ui:composition xmlns="http://www.w3.org/1999/xhtml"
+                xmlns:h="http://java.sun.com/jsf/html"
+                xmlns:f="http://java.sun.com/jsf/core"
+                xmlns:ui="http://java.sun.com/jsf/facelets"
+                xmlns:leaf="http://java.sun.com/jsf/composite/jsf2leaf"
+                xmlns:p="http://primefaces.org/ui"
+                template="/WEB-INF/template.xhtml">
+    <ui:define name="content">
+
+        <style>
+
+            body .ui-datatable .ui-datatable-data > tr.ui-state-highlight {
+                background: #fbc948;
+                color: #ffffff;
+            }
+
+            .ui-chkbox .ui-chkbox-label {
+                font: message-box;
+            }
+            .ui-column-title{
+                font-size: 13px;
+            }
+            .selected-row {
+                background: #fbc948 !important;
+                color: #ffffff !important;
+            }
+
+        </style>
+
+        <script>
+
+
+            function functionCartaServizi() {
+                document.getElementById('form:printCartaServizi').click();
+            }
+
+        </script>
+
+
+        <h:form id="form" onkeypress="if (event.keyCode == 13) {
+                    return false;
+                }">
+            <!--f:event type="preRenderView" listener="# {ruoloBean.inizialize()}" /-->
+            <p:ajaxStatus onstart="PF('statusDialog').show()" onsuccess="PF('statusDialog').hide()"  />
+            <p:dialog widgetVar="statusDialog" modal="true" draggable="false" closable="false" resizable="false" showHeader="false">
+                <p:graphicImage url="/resources/images/loader.gif" width="100px" height="100px" />
+            </p:dialog> 
+
+            <!-- Content Header (Page header) -->
+            <section class="content-header" >
+                <h1>
+                    <b style="color:#fbc948">A</b>nagrafica <b style="color:#fbc948">P</b>rove 
+                </h1>
+            </section>
+
+            <div class="p-grid crud-demo">
+                <div class="p-col-12">
+                    <div class="card">
+
+                        <p:fieldset toggleable="true" legend="Gestione Carta Servizi">
+                            <p:panelGrid id="pnlCerca" columns="4" styleClass="ui-panelgrid-blank"
+                                         layout="grid"
+                                         columnClasses="ui-grid-col-2,ui-grid-col-4,ui-grid-col-2,ui-grid-col-4">
+
+                                <p:outputPanel>
+                                    <p:outputLabel value="Carta Dei Servizi" style="font-weight: bold"/>
+                                </p:outputPanel>
+                                
+                                  <p:outputPanel>
+                                      <p:selectOneMenu id="cmbStruttura" value="#{cartaServiziBean.idStruttura}"  >
+                                        <f:selectItem itemLabel="Nessuna selezione" itemValue="-1"></f:selectItem>
+                                        <f:selectItems noSelectionValue="-1" value="#{cartaServiziBean.listaStrutturaCartaServizi}" var="d" itemLabel="#{d.denominazione}" itemValue="#{d.idStruttura}" ></f:selectItems>
+                                       <p:ajax listener="#{cartaServiziBean.caricaMatrici}"
+                                            update="ricTable cmbMatrice"
+                                            process="@this cmbStruttura" />
+                                    
+                                    </p:selectOneMenu>
+                                </p:outputPanel>
+
+                              
+
+                                <p:outputPanel layout="inline" style="font-weight: bold; vertical-align: middle;">
+                                    Matrice Carta Servizi
+                                    <p:commandLink id="tooltipIcon" 
+                                                   update="tooltipPanel"
+                                                   oncomplete="PF('tooltipPanel').show()" process="@this"
+                                                   style="margin-left:5px; vertical-align: middle;">
+                                        <i class="fa fa-info-circle" style="font-size: 1.2em; color:#007ad9;" />
+                                    </p:commandLink>
+                                </p:outputPanel>
+
+                                <p:selectOneMenu id="cmbMatrice" value="#{cartaServiziBean.matriceSelezionata}" style="max-width:300px; vertical-align: middle;">
+                                    <f:selectItem itemLabel="Seleziona" itemValue="" />
+                                    <f:selectItems value="#{cartaServiziBean.matriciDisponibili}" var="m"
+                                                   itemLabel="#{m.descrizione}" itemValue="#{m.idMatrice}"/>
+                                    <p:ajax listener="#{cartaServiziBean.onMatriceSelectFromMenu}" update="@form" process="@this" />
+                                </p:selectOneMenu>
+
+                                <p:message for="cmbMatrice" />
+
+
+                            </p:panelGrid>
+                        </p:fieldset>
+
+                        <br/>
+
+                        <p:fieldset toggleable="true" legend="Creazione Matrice Carta Servizi">
+                            <p:panelGrid id="pnlAddMatrice" columns="4" styleClass="ui-panelgrid-blank"
+                                         layout="grid"
+                                         columnClasses="ui-grid-col-2,ui-grid-col-4,ui-grid-col-2,ui-grid-col-4">
+                                <p:outputLabel value="Matrice Principale:" style="font-weight: bold" />
+                                <p:selectOneMenu id="matriceMenu"
+                                                 value="#{cartaServiziBean.matriciSelezionate}"
+                                                 label="Seleziona Matrici"
+                                                 style="width: 300px"
+                                                 >
+                                    <f:selectItems value="#{cartaServiziBean.matriciOptions}" />
+                                </p:selectOneMenu>
+
+                                <p:outputLabel value="Denominazione Matrice:" style="font-weight: bold" />
+                                <p:inputText id="inputNuovaDescrizione" value="#{cartaServiziBean.nuovaDescrizione}" />
+                                <p:commandButton value="Aggiungi Matrice"
+                                                 action="#{cartaServiziBean.aggiungiMatrice}"
+                                                 process="@this inputNuovaDescrizione"
+                                                 update="ricTable"
+                                                 />
+                            </p:panelGrid>
+                        </p:fieldset>
+
+                        <br/>
+
+                        <p:dataTable id="ricTable"
+                                     var="p"
+                                     value="#{cartaServiziBean.matriceSelezionataList}"
+                                     selection="#{cartaServiziBean.matriceSelezionataObj}"
+                                     selectionMode="single"
+                                     rowKey="#{p.idMatrice}"
+                                     paginator="true" rows="5"
+                                     rowsPerPageTemplate="2,5,10,15" 
+                                     paginatorPosition="bottom"
+                                     emptyMessage="Nessun risultato presente"
+                                     rowStyleClass="#{p.idMatrice eq cartaServiziBean.matriceSelezionata ? 'selected-row' : null}">
+
+                            <p:ajax event="rowSelect" 
+                                    listener="#{cartaServiziBean.onMatriceSelect}" 
+                                    update="form:tbView form:tbView:parProveTable form:tbView:parPACCTable" />
+                            <p:column headerText="Matrice">
+                                <p:outputLabel value="#{p.descrizione}" />
+                            </p:column>
+
+                            <p:column headerText="Operazioni">
+                                <p:commandButton id="cmdStampaCartaServizi"
+                                                 icon="pi pi-print"
+                                                 styleClass="ui-button-raised ui-button-primary p-mr-2 p-mb-2"
+                                                 title="Genera Carta Servizi"
+                                                 ajax="false"
+                                                 immediate="true"
+                                                 actionListener="#{cartaServiziBean.generaStampaCartaServizi(p)}"
+                                                 >
+                                  
+                                </p:commandButton>
+                                </p:column>
+                           
+                        </p:dataTable>
+
+                        <p:tabView id="tbView">
+                            <p:tab title="Prove">
+                                <p:toolbar style="width:100%; margin: auto;border: none !important">
+                                    <f:facet name="left">
+                                        <p:commandButton id="cmdAggProve" 
+                                                         title="Aggiungi Prove" 
+                                                         value="Aggiungi Prove"  
+                                                         action="#{cartaServiziBean.goToInsModProve()}"  
+                                                         ajax="false"
+                                                         immediate="true" />
+                                    </f:facet>
+                                </p:toolbar>
+
+                                <p:dataTable id="parProveTable" var="elem" value="#{cartaServiziBean.listaRicerca}" styleClass="products-table"
+                                             emptyMessage="Nessun risultato presente"
+                                             paginator="true" paginatorPosition="bottom" rows="10">
+
+                                    <p:column headerText="Prova" filterBy="#{elem.mnemonico}" filterMatchMode="contains" sortBy="#{elem.mnemonico}">
+                                        <h:outputText value="#{elem.mnemonico}" />
+                                    </p:column>
+
+                                    <p:column headerText="Metodo Analitico" filterBy="#{elem.descrizioneMetodo}" filterMatchMode="contains" sortBy="#{elem.descrizioneMetodo}">
+                                        <h:outputText value="#{elem.descrizioneMetodo}" />
+                                    </p:column>
+
+                                    <p:column headerText="Categoria" filterBy="#{elem.categoriaDescrizione}" filterMatchMode="contains" sortBy="#{elem.categoriaDescrizione}">
+                                        <h:outputText value="#{elem.categoriaDescrizione}" />
+                                    </p:column>
+
+                                    <p:column headerText="Profilo Analitico" filterBy="#{elem.codice}" filterMatchMode="contains" sortBy="#{elem.codice}">
+                                        <h:outputText value="" />
+                                    </p:column> 
+
+                                    <p:column headerText="Operazioni">
+                                        <p:commandButton  id="cmdModifica"  styleClass="ui-button-raised ui-button-warning p-mr-2 p-mb-2" icon="fa fa-fw fa-edit" action="#{cartaServiziBean.modifica(elem.idEsame)}" title="Modifica" ajax="false"
+                                                          immediate="true"/>
+                                        <p:commandButton id="cmdElimina" styleClass="ui-button-raised ui-button-danger p-mr-2 p-mb-2" icon="pi pi-trash" action="#{cartaServiziBean.cmdElimina(elem.idEsame)}">
+                                            <p:confirm header="Conferma" message="Sei sicuro di voler confermare l'operazione?"/>
+                                        </p:commandButton>
+
+                                    </p:column>
+
+                                    <p:ajax event="filter" update="parProveTable" />
+                                </p:dataTable>
+                            </p:tab>
+
+                            <p:tab title="Pacchetti">
+                                <p:toolbar style="width:99%; margin: auto;border: none !important">
+                                    <f:facet name="left">
+                                        <p:commandButton id="cmdAggPacchetti" title="Aggiungi Pacchetti" value="Aggiungi Pacchetti" action="#{cartaServiziBean.goToInsModPacchetti()}">
+                                        </p:commandButton>
+                                    </f:facet>
+                                </p:toolbar>
+
+                                <p:dataTable id="parPACCTable" var="elem2" value="#{cartaServiziBean.listaPacchetti}" styleClass="products-table"
+                                             emptyMessage="Nessun risultato presente">
+
+                                    <p:column style="width:3rem">
+                                        <p:rowToggler/>
+                                    </p:column>
+
+                                    <p:rowExpansion>
+                                        <p:panelGrid id="row1" columns="2"  styleClass="ui-panelgrid-blank" layout="grid" columnClasses="ui-grid-col-12">
+                                            <p:dataTable id="prove4" var="elem" value="#{cartaServiziBean.listaRicerca}" styleClass="products-table"
+                                                         emptyMessage="Nessun risultato presente">
+
+                                                <p:column headerText="Prove" >
+                                                    <h:outputText value="#{elem.mnemonico}"></h:outputText>
+                                                </p:column>     
+
+                                            </p:dataTable>
+                                            <p:dataTable id="prove3" var="sottopacchetto" value="#{cartaServiziBean.getSottopacchettiById(elem2.idCertificatoAnalitico)}"  styleClass="products-table"
+                                                         emptyMessage="Nessun risultato presente">
+
+                                                <p:column headerText="Sottopacchetti" >
+                                                    <h:outputText value="#{sottopacchetto.codice}" />
+                                                </p:column>   
+
+                                            </p:dataTable>
+
+                                        </p:panelGrid>
+                                    </p:rowExpansion>
+
+                                    <p:column headerText="Pacchetto">
+                                        <h:outputText value="#{elem2.nome}"></h:outputText>
+                                    </p:column>               
+
+                                    <p:column headerText="Categoria">
+                                        <h:outputText value="#{cartaServiziBean.getDescrizioneCategoriaPerPacchetto(elem2)}" />
+                                    </p:column>     
+
+                                    <p:column headerText="Operazioni">
+                                        <p:commandButton id="cmdModificaProve" disabled="#{!userData.pagina.updatable}" styleClass="ui-button-raised ui-button-warning p-mr-2 p-mb-2" icon="fa fa-fw fa-edit"  title="Modifica" onclick="this.blur();"/>
+                                        <p:commandButton id="cmdEliminaProve" disabled="#{!userData.pagina.deletable}" styleClass="ui-button-raised ui-button-danger p-mr-2 p-mb-2" icon="pi pi-trash"  title="Elimina"  onclick="this.blur();">
+                                            <p:confirm header="Conferma" message="Sei sicuro di voler confermare l'operazione?"/>
+                                        </p:commandButton>
+                                    </p:column>
+
+                                </p:dataTable>
+
+
+
+                            </p:tab>
+
+                        </p:tabView>
+
+                        <!-- OverlayPanel -->
+                        <p:overlayPanel id="tooltipPanel" widgetVar="tooltipPanel" for="tooltipIcon" showCloseIcon="true" dismissable="true" style="width:300px;">
+                            <p:fieldset legend="Informazioni Matrice">
+                                <p:panelGrid columns="2" styleClass="ui-panelgrid-blank">
+                                    <p:outputLabel value="Codice:" />
+                                    <p:outputLabel value="#{cartaServiziBean.matriceSelezionataObj != null ? cartaServiziBean.matriceSelezionataObj.codice : ''}" />
+
+                                    <p:outputLabel value="Descrizione:" />
+                                    <p:outputLabel value="#{cartaServiziBean.matriceSelezionataObj != null ? cartaServiziBean.matriceSelezionataObj.descrizione : ''}" />
+                                </p:panelGrid>
+                            </p:fieldset>
+                        </p:overlayPanel>
+
+
+                    </div>
+                </div>
+            </div>
+
+            <p:commandButton value="printCartaServizi" widgetVar="printCartaServizi"  id="printCartaServizi"  ajax="false" process="@this"  style="display: none" >
+                <p:fileDownload value="#{cartaServiziBean.downlPdfCartaServizi}" />
+            </p:commandButton>
+
+        </h:form>
+    </ui:define>
+</ui:composition>
