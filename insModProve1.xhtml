@@ -8,7 +8,6 @@
                 template="/WEB-INF/template.xhtml">
     <ui:define name="content">
         <style>
-
             body .ui-datatable .ui-datatable-data > tr.ui-state-highlight {
                 background: #fbc948;
                 color: #ffffff;
@@ -17,11 +16,8 @@
             .ui-chkbox .ui-chkbox-label {
                 font: message-box;
             }
-
-
         </style>
         <script>
-
             PrimeFaces.widget.SelectOneMenu.prototype.handleEnterKey = function (event) {
                 if (this.panel.is(':visible')) {
                     this.selectItem(this.getActiveItem());
@@ -30,25 +26,18 @@
 
                 event.preventDefault();
             };
-
         </script>
 
         <h:form id="form">
-
-
-
-
             <p:ajaxStatus onstart="PF('statusDialog').show()" onsuccess="PF('statusDialog').hide()"  />
             <p:dialog widgetVar="statusDialog" modal="true" draggable="false" closable="false" resizable="false" showHeader="false">
                 <p:graphicImage url="/resources/images/loader.gif" width="100px" height="100px" />
             </p:dialog> 
 
-
-
             <!-- Content Header (Page header) -->
             <section class="content-header" >
                 <h1>
-                    <b style="color:#fbc948">G</b>estione <b style="color:#fbc948">M</b>etodi <b style="color:#fbc948">#{insModProveBean.esameModel.mnemonico}</b>
+                    <b style="color:#fbc948">G</b>estione <b style="color:#fbc948">P</b>rove <b style="color:#fbc948">#{insModProveBean.esameModel.mnemonico}</b>
                 </h1>
             </section>
 
@@ -57,7 +46,7 @@
                     <div class="card">
 
                         <p:panelGrid id="pnlForm" columns="1"  styleClass="ui-panelgrid-blank" layout="grid" columnClasses="ui-grid-col-12">
-
+                            <!--menu-->
                             <p:panelGrid id="pnlDip" columns="4"   styleClass="ui-panelgrid-blank" layout="grid" columnClasses="ui-grid-col-2,ui-grid-col-4,ui-grid-col-2,ui-grid-col-4">
                                 <p:outputPanel>
                                     <p:outputLabel value="Dipartimento " style="font-weight: bold"/>
@@ -83,9 +72,8 @@
                                 </p:outputPanel>
                             </p:panelGrid>
 
-
+                            <!--menu visibile solo durante la modifica -->
                             <p:panelGrid id="pnlMetodi" columns="1" rendered="#{!insModProveBean.boolInserimento and !insModProveBean.boolModifica}"  styleClass="ui-panelgrid-blank" layout="grid" columnClasses="ui-grid-col-12">
-
                                 <p:dataTable id="ricTable" var="elem" value="#{insModProveBean.listaMetodiParametriLaboratorio}" styleClass="products-table"
                                              lazy="true" paginatorAlwaysVisible="false" paginatorPosition="bottom" rendered="#{!insModProveBean.boolTablePre and !insModProveBean.boolGestioneParametri}"
                                              paginator="true" rows="10"
@@ -99,7 +87,7 @@
                                     </p:column> 
 
                                     <p:column headerText="Operazioni" style="width: 12%" >
-                                        <p:commandButton  id="cmdModifica" action="#{insModProveBean.abilitaModifica(elem)}" update="form:pnlForm" styleClass="ui-button-raised ui-button-warning p-mr-2 p-mb-2" icon="fa fa-fw fa-edit" rendered="#{insModProveBean.userData.pagina.updatable}" title="Modifica" onclick="this.blur();"/>
+                                        <p:commandButton  id="cmdModifica" action="#{insModProveBean.abilitaModifica(elem)}" update="form:pnlForm" styleClass="ui-button-raised ui-button-warning p-mr-2 p-mb-2" icon="fa fa-fw fa-edit" immediate='true' rendered="#{insModProveBean.userData.pagina.updatable}" title="Modifica" onclick="this.blur();"/>
                                         <p:commandButton id="cmdElimina" styleClass="ui-button-raised ui-button-danger p-mr-2 p-mb-2" icon="pi pi-trash" disabled="#{!userData.pagina.deletable}" action="#{insModProveBean.cmdElimina(elem)}" title="Elimina" update="ricTable form:messages form:messagesinfo">
                                             <p:confirm header="Conferma" message="Sei sicuro di voler confermare l'operazione?"/>
                                         </p:commandButton>
@@ -108,58 +96,108 @@
                                 </p:dataTable>
                             </p:panelGrid>
 
-
+                            <!--grid visibile per l'inserimento-->
                             <p:panelGrid id="pnlMetodoIns" columns="1" rendered="#{insModProveBean.boolInserimento and !insModProveBean.boolModifica}"  styleClass="ui-panelgrid-blank" layout="grid" columnClasses="ui-grid-col-12">
 
                                 <p:fieldset legend="Definizione Valori Prova">
 
                                     <p:panelGrid columns="4" styleClass="ui-panelgrid-blank" layout="grid" columnClasses="ui-grid-col-2,ui-grid-col-4,ui-grid-col-2,ui-grid-col-4">
+                                        <h:panelGroup layout="block">
+                                            <p:outputLabel value="Prova" style="font-weight: bold"/>
+                                            <p:commandLink id="tooltipIcon" 
+                                                           update="tooltipPanel"
+                                                           oncomplete="PF('tooltipPanel').show()" 
+                                                           process="@this"  
+                                                           style="margin-left:5px; vertical-align: middle;">
+                                                <i class="fa fa-info-circle" style="font-size: 1.2em; color:#007ad9;" />
+                                            </p:commandLink>
+                                        </h:panelGroup>
 
-                                        <p:outputLabel value=" " style="font-weight: bold"/>
-                                        <p:outputLabel value=" " style="color: red;font-weight: bold"/>
+                                        <h:panelGroup style="display:flex;align-items:center;gap:6px;">
+                                            <p:selectOneMenu  value="#{insModProveBean.selectedMetodoIns.idEsame}" filter="true" filterMatchMode="contains" style="inline-size: -webkit-fill-available; min-width:250px !important" >
+                                                <f:selectItem itemLabel="Nessuna selezione" itemValue="-1"></f:selectItem>
+                                                <f:selectItems noSelectionValue="-1" value="#{insModProveBean.listaProve}" var="m" itemLabel="#{m.mnemonico}" itemValue="#{m.idEsame}" ></f:selectItems>
+                                                <p:ajax event="change" update="tooltipPanel" process="@this" />
+                                            </p:selectOneMenu>
+                                            <p:commandButton icon="pi pi-plus" title="Aggiungi nuova prova"
+                                                             styleClass="rounded-button"
+                                                             style="width: 40px; height: auto; border-radius: 0 !important; padding: 0;"
+                                                             process="@this"
+                                                             update=":form:dialogNuovaProva"
+                                                             oncomplete="PF('dlgNuovaProva').show();" />
+                                        </h:panelGroup>
 
-                                        <p:outputPanel>
+                                        <h:panelGroup layout="block">
                                             <p:outputLabel value="Metodo" style="font-weight: bold"/>
-                                            <p:outputLabel value=" *" style="color: red;font-weight: bold"/>
-                                        </p:outputPanel>
+                                            <p:commandLink id="tooltipIcon2" 
+                                                           update="tooltipPanel2"
+                                                           oncomplete="PF('tooltipPanel2').show()" process="@this"
+                                                           style="margin-left:5px; vertical-align: middle;">
+                                                <i class="fa fa-info-circle" style="font-size: 1.2em; color:#007ad9;" />
+                                            </p:commandLink>
+                                            <!--                                            <p:outputLabel value=" *" style="color: red;font-weight: bold"/>-->
+                                        </h:panelGroup>
 
-                                        <p:selectOneMenu  value="#{insModProveBean.selectedMetodoIns.idMetodo}" filter="true" filterMatchMode="contains" style="inline-size: -webkit-fill-available; min-width:250px !important" >
-                                            <f:selectItem itemLabel="Nessuna selezione" itemValue="-1"></f:selectItem>
-                                            <f:selectItems noSelectionValue="-1" value="#{insModProveBean.listaMetodiMisura}" var="m" itemLabel="#{m.descrizione}" itemValue="#{m.idMetodo}" ></f:selectItems>
+                                        <h:panelGroup style="display:flex;align-items:center;gap:6px;">
+                                            <p:selectOneMenu  value="#{insModProveBean.selectedMetodoIns.idMetodo}" filter="true" filterMatchMode="contains" style="inline-size: -webkit-fill-available; min-width:250px !important" >
+                                                <f:selectItem itemLabel="Nessuna selezione" itemValue="-1"></f:selectItem>
+                                                <f:selectItems noSelectionValue="-1" value="#{insModProveBean.listaMetodiMisura}" var="m" itemLabel="#{m.descrizione}" itemValue="#{m.idMetodo}" ></f:selectItems>
+                                                <p:ajax event="change" update="tooltipPanel2" process="@this" />
+                                            </p:selectOneMenu>
+                                            <!-- Bottone per aggiungere nuovo metodo -->
+                                            <p:commandButton icon="pi pi-plus" title="Aggiungi nuovo metodo" 
+                                                             styleClass="rounded-button"
+                                                             style="width: 40px; height: auto; border-radius: 0 !important; padding: 0;"
+                                                             process="@this" 
+                                                             update=":form:dialogNuovoMetodo"
+                                                             oncomplete="PF('dlgNuovoMetodo').show();"
+                                                             />
+                                        </h:panelGroup>
+                                    </p:panelGrid>
 
-                                        </p:selectOneMenu>
-
-                                        <p:outputLabel value=" " style="font-weight: bold"/>
-                                        <p:outputLabel value=" " style="color: red;font-weight: bold"/>
-
-                                        <p:outputPanel>
+                                    <p:panelGrid columns="4" styleClass="ui-panelgrid-blank" layout="grid" columnClasses="ui-grid-col-2,ui-grid-col-4,ui-grid-col-2,ui-grid-col-4">
+                                        <h:panelGroup layout="block">
                                             <p:outputLabel value="Profilo Analitico" style="font-weight: bold"/>
-                                        </p:outputPanel>
+                                            <!--                                            <p:outputLabel value=" *" style="color: red;font-weight: bold"/>-->
+                                            <p:commandLink id="tooltipIcon3"
+                                                           update="tooltipPanel3"
+                                                           oncomplete="PF('tooltipPanel3').show()"
+                                                           style="margin-left:5px; vertical-align: middle;" >
+                                                <i class="fa fa-info-circle" style="font-size: 1.2em; color:#007ad9;" />              
+                                            </p:commandLink>
+                                        </h:panelGroup>
 
-                                        <p:selectOneMenu  value="#{insModProveBean.selectedMetodoIns.idProfiloAnalitico}" filter="true" filterMatchMode="contains" style="inline-size: -webkit-fill-available;" >
-                                            <f:selectItem itemLabel="Nessuna selezione" itemValue="-1"></f:selectItem>
-                                            <f:selectItems noSelectionValue="-1" value="#{insModProveBean.listaProfili}" var="p" itemLabel="#{p.descrizione}" itemValue="#{p.idProfiloAnalitico}" ></f:selectItems>
+                                        <h:panelGroup style="display:flex;align-items:center;gap:6px;">
+                                            <p:selectOneMenu  value="#{insModProveBean.selectedMetodoIns.idProfiloAnalitico}" filter="true" filterMatchMode="contains" style="inline-size: -webkit-fill-available;" >
+                                                <f:selectItem itemLabel="Nessuna selezione" itemValue="-1"></f:selectItem>
+                                                <f:selectItems noSelectionValue="-1" value="#{insModProveBean.listaProfili}" var="p" itemLabel="#{p.codice}" itemValue="#{p.idProfiloAnalitico}" ></f:selectItems>
+                                                <p:ajax event="change" update="tooltipPanel3" process="@this" />
+                                            </p:selectOneMenu>
+                                            <p:commandButton icon="pi pi-plus" title="Aggiungi nuovo profilo"
+                                                             style="width: 40px; height: auto; border-radius: 0 !important; padding: 0;"
+                                                             process="@this" 
+                                                             update="form:dialogNuovoProfilo"
+                                                             oncomplete="PF('dlgNuovoProfilo').show();"
+                                                             />
 
-                                        </p:selectOneMenu>
+                                        </h:panelGroup>
 
-                                        <p:outputLabel value=" " style="font-weight: bold"/>
-                                        <p:outputLabel value=" " style="color: red;font-weight: bold"/>
-
-                                        <p:outputPanel>
+                                        <h:panelGroup layout="block">
                                             <p:outputLabel value="Unit&agrave; di Misura " style="font-weight: bold"/>
                                             <p:outputLabel value=" *" style="color: red;font-weight: bold"/>
-                                        </p:outputPanel>
+                                        </h:panelGroup>
 
-                                        <p:selectOneMenu  value="#{insModProveBean.selectedMetodoIns.idUnitaMisura}" filter="true" filterMatchMode="contains" style="inline-size: -webkit-fill-available;">
-                                            <f:selectItem itemLabel="Nessuna selezione" itemValue="-1"></f:selectItem>
-                                            <f:selectItems noSelectionValue="-1" value="#{insModProveBean.listaUnitaMisura}" var="um" itemLabel="#{um.descrizione}" itemValue="#{um.idUm}" ></f:selectItems>
+                                        <h:panelGroup style="display:flex;align-items:center;gap:6px">
+                                            <p:selectOneMenu  value="#{insModProveBean.selectedMetodoIns.idUnitaMisura}" filter="true" filterMatchMode="contains" style="inline-size: -webkit-fill-available;">
+                                                <f:selectItem itemLabel="Nessuna selezione" itemValue="-1"></f:selectItem>
+                                                <f:selectItems noSelectionValue="-1" value="#{insModProveBean.listaUnitaMisura}" var="um" itemLabel="#{um.descrizione}" itemValue="#{um.idUm}" ></f:selectItems>
+                                            </p:selectOneMenu>
+                                        </h:panelGroup>
+                                    </p:panelGrid>
 
-                                        </p:selectOneMenu>
-
+                                    <p:panelGrid columns="4" styleClass="ui-panelgrid-blank" layout="grid" columnClasses="ui-grid-col-2,ui-grid-col-4,ui-grid-col-2,ui-grid-col-4">
                                         <p:outputLabel value="Cifre Decimali " style="font-weight: bold"/>
                                         <p:inputText value="#{insModProveBean.selectedMetodoIns.cifreDecimali}" style="inline-size: -webkit-fill-available;"/>
-
-
 
                                         <p:outputLabel value="Limite minimo " style="font-weight: bold"/>
                                         <p:inputText value="#{insModProveBean.selectedMetodoIns.limiteMinimo}" style="inline-size: -webkit-fill-available;"/>
@@ -169,7 +207,6 @@
 
                                         <p:outputLabel value="LOQ " style="font-weight: bold"/>
                                         <p:inputText value="#{insModProveBean.selectedMetodoIns.limiteQuantificazione}" style="inline-size: -webkit-fill-available;"/>
-
 
                                         <p:outputLabel value="Risultato di Default " style="font-weight: bold"/>
                                         <p:inputText value="#{insModProveBean.selectedMetodoIns.risultatoDefault}" style="inline-size: -webkit-fill-available;"/>
@@ -218,11 +255,9 @@
 
                                 </p:fieldset>
 
-
-
                                 <p:toolbar styleClass="p-mb-4">
                                     <p:toolbarGroup>
-                                        <p:commandButton id="cmdAnnullaIns" update="form:pnlForm form:messages form:messagesinfo"  action="#{insModProveBean.annullaInserimento()}" value="Annulla" icon="pi pi-minus" styleClass="ui-button-raised ui-button-primary p-mr-2 p-mb-2" style="margin-right: .5rem" />
+                                        <p:commandButton id="cmdAnnullaIns" update="form:pnlForm form:messages form:messagesinfo"  action="cartaServizi.xhtml?faces-redirect=true" value="Annulla" icon="pi pi-minus" styleClass="ui-button-raised ui-button-primary p-mr-2 p-mb-2" style="margin-right: .5rem" immediate='true' />
                                         <p:commandButton id="cmdInserimento" update="form:pnlForm form:messages form:messagesinfo"  action="#{insModProveBean.salvaInserimento()}"   value="Salva" icon="fa fa-save" styleClass="ui-button-raised ui-button-success p-mr-2 p-mb-2" style="margin-right: .5rem" >
                                             <p:confirm header="Conferma" message="Sei sicuro di voler salvare?"/>
                                         </p:commandButton>
@@ -231,7 +266,7 @@
 
                             </p:panelGrid>
 
-
+                            <!--grid visibile solo durante la modifica,recupera i valori associati-->
                             <p:panelGrid id="pnlMetodoMod" columns="1" rendered="#{!insModProveBean.boolInserimento and insModProveBean.boolModifica}"  styleClass="ui-panelgrid-blank" layout="grid" columnClasses="ui-grid-col-12">
                                 <p:fieldset legend="Definizione Valori Prova">                             
                                     <p:panelGrid columns="4" styleClass="ui-panelgrid-blank" layout="grid" columnClasses="ui-grid-col-2,ui-grid-col-4,ui-grid-col-2,ui-grid-col-4">
@@ -242,14 +277,14 @@
                                         </h:panelGroup>
 
                                         <h:panelGroup style="display:flex;align-items:center;gap:6px;">
-                                        <p:selectOneMenu filter="true" filterMatchMode="contains"  value="#{insModProveBean.selectedMetodo.idMetodo}" style="flex: 1;width: 20px" >
-                                            <f:selectItem itemLabel="Nessuna selezione" itemValue="-1"></f:selectItem>
-                                            <f:selectItems noSelectionValue="-1" value="#{insModProveBean.listaMetodiMisura}" var="m" itemLabel="#{m.descrizione}" itemValue="#{m.idMetodo}" ></f:selectItems>
+                                            <p:selectOneMenu filter="true" filterMatchMode="contains"  value="#{insModProveBean.selectedMetodo.idMetodo}" style="flex: 1;width: 20px" >
+                                                <f:selectItem itemLabel="Nessuna selezione" itemValue="-1"></f:selectItem>
+                                                <f:selectItems noSelectionValue="-1" value="#{insModProveBean.listaMetodiMisura}" var="m" itemLabel="#{m.descrizione}" itemValue="#{m.idMetodo}" ></f:selectItems>
 
-                                        </p:selectOneMenu>
+                                            </p:selectOneMenu>
 
-                                        <p:outputLabel value="" />
-                                        <p:outputLabel value="" />
+                                            <p:outputLabel value="" />
+                                            <p:outputLabel value="" />
                                         </h:panelGroup>
 
                                         <h:panelGroup layout="block">
@@ -257,15 +292,15 @@
                                         </h:panelGroup>
 
                                         <h:panelGroup style="display:flex;align-items:center;gap:6px;">
-                                        <p:selectOneMenu filter="true" filterMatchMode="contains" value="#{insModProveBean.selectedMetodo.idProfiloAnalitico}" style="flex: 1;width: 20px" >
-                                            <f:selectItem itemLabel="Nessuna selezione" itemValue="-1"></f:selectItem>
-                                            <f:selectItems noSelectionValue="-1" value="#{insModProveBean.listaProfili}" var="pi" itemLabel="#{pi.descrizione}" itemValue="#{pi.idProfiloAnalitico}" ></f:selectItems>
-                                        </p:selectOneMenu>
-                                        
-                                        <p:outputLabel value=" " style="font-weight: bold"/>
-                                        <p:outputLabel value=" " style="color: red;font-weight: bold"/>
+                                            <p:selectOneMenu filter="true" filterMatchMode="contains" value="#{insModProveBean.selectedMetodo.idProfiloAnalitico}" style="flex: 1;width: 20px" >
+                                                <f:selectItem itemLabel="Nessuna selezione" itemValue="-1"></f:selectItem>
+                                                <f:selectItems noSelectionValue="-1" value="#{insModProveBean.listaProfili}" var="pi" itemLabel="#{pi.descrizione}" itemValue="#{pi.idProfiloAnalitico}" ></f:selectItems>
+                                            </p:selectOneMenu>
+
+                                            <p:outputLabel value=" " style="font-weight: bold"/>
+                                            <p:outputLabel value=" " style="color: red;font-weight: bold"/>
                                         </h:panelGroup>
-                                        
+
                                         <p:outputPanel>
                                             <p:outputLabel value="Unit&agrave; di Misura " style="font-weight: bold"/>
                                             <p:outputLabel value=" *" style="color: red;font-weight: bold"/>
@@ -341,7 +376,7 @@
 
                                 <p:toolbar styleClass="p-mb-4">
                                     <p:toolbarGroup>
-                                        <p:commandButton id="cmdAnnullaMod" update="form:pnlForm form:messages form:messagesinfo"  action="#{insModProveBean.annullaModifica()}" value="Annulla" icon="pi pi-minus" styleClass="ui-button-raised ui-button-primary" style="margin-right: .5rem" />
+                                        <p:commandButton id="cmdAnnullaMod" update="form:pnlForm form:messages form:messagesinfo"  action="cartaServizi.xhtml?faces-redirect=true" immediate="true" value="Annulla" icon="pi pi-minus" styleClass="ui-button-raised ui-button-primary" style="margin-right: .5rem" />
                                         <p:commandButton id="cmdModifica" update="form:pnlForm form:messages form:messagesinfo"  action="#{insModProveBean.salvaModifica()}"   value="Modifica" icon="fa fa-edit" styleClass="ui-button-raised ui-button-success" style="margin-right: .5rem" >
                                             <p:confirm header="Conferma" message="Sei sicuro di voler salvare le modifiche?"/>
                                         </p:commandButton>
@@ -350,9 +385,8 @@
 
                             </p:panelGrid>
 
-       
-                        </p:panelGrid>
 
+                        </p:panelGrid>
 
                         <br/>
                         <p:toolbar style="width:99%; margin: auto;border: none !important">
@@ -362,14 +396,14 @@
                             </f:facet>
                         </p:toolbar>
 
+                        <!--disattivati-->
                         <p:growl id="messages" globalOnly="true" severity="error, warn, fatal" showDetail="true" rendered="false"/>
                         <p:growl id="messagesinfo"  globalOnly="true" severity="info" showDetail="true" rendered="false"/>
-<!--                        momentaneamente disattivati-->
+
 
                     </div>
                 </div>
             </div>
-
 
             <p:confirmDialog styleClass="confdialog"  global="true" closable="false" showEffect="fade" hideEffect="fade">
                 <h:panelGrid columns="2" style="width: 100%; text-align: center">
@@ -378,7 +412,95 @@
                 </h:panelGrid>
             </p:confirmDialog>  
 
-        </h:form>
+            <!--Tooltip Panel Prova-->
+            <p:overlayPanel id="tooltipPanel" widgetVar="tooltipPanel" for="tooltipIcon" showCloseIcon="true" dismissable="true" style="width:300px;">
+                <p:fieldset legend="Informazioni Prova">
+                    <p:panelGrid columns="2" styleClass="ui-panelgrid-blank">
+                        <p:outputLabel value="Codice:" />
+                        <p:outputLabel value="#{insModProveBean.provaSelezionata.codice}" />
 
+                        <p:outputLabel value="Descrizione:" />
+                        <p:outputLabel value="#{insModProveBean.provaSelezionata.descrizione}" />
+                    </p:panelGrid>
+                </p:fieldset>
+            </p:overlayPanel>
+            <!--dialog per l'aggiunta di nuove prove-->
+            <p:dialog id="dialogNuovaProva" widgetVar="dlgNuovaProva" header="Nuova Prova" modal="true" closable="true" resizable="false">
+                <h:panelGrid columns="2" cellpadding="5">
+                    <h:outputLabel for="mnemonico" value="Mnemonico:" />
+                    <p:inputText id="mnemonico" value="#{insModProveBean.nuovaProva.mnemonico}" required="true" />
+
+                    <h:outputLabel for="descrizione" value="Descrizione:" />
+                    <p:inputText id="descrizione" value="#{insModProveBean.nuovaProva.descrizione}" />
+                </h:panelGrid>
+                <p:separator />
+                <p:commandButton value="Salva" action="#{insModProveBean.salvaNuovaProva}"
+                                 process="dialogNuovaProva" 
+                                 update=":form" 
+                                 oncomplete="PF('dlgNuovaProva').hide();" 
+                                 icon="pi pi-check" />
+            </p:dialog>
+
+            <!--Tooltip Metodo-->
+            <p:overlayPanel id='tooltipPanel2' widgetVar="tooltipPanel2" for='tooltipIcon2' showCloseIcon="true" dismissable="true" style='width: 300px'>
+                <p:fieldset legend="Informazioni Metodo">
+                    <p:panelGrid columns="2" styleClass="ui-panelgrid-blank">
+                        <p:outputLabel value="Codice:" />
+                        <p:outputLabel value="#{insModProveBean.metodoSelezionato.codice}" />
+
+                        <p:outputLabel value="Descrizione:" />
+                        <p:outputLabel value="#{insModProveBean.metodoSelezionato.descrizione}" />
+                    </p:panelGrid>
+                </p:fieldset>
+            </p:overlayPanel>
+            <!--dialog per l'aggiunta di nuovi metodi-->
+            <p:dialog id="dialogNuovoMetodo" widgetVar="dlgNuovoMetodo" header="Nuovo Metodo" modal="true" closable="true" resizable="false">
+                <h:panelGrid columns="2" cellpadding="5">
+                    <h:outputLabel for="descrizione" value="Descrizione:" />
+                    <p:inputText id="codice" value="#{insModProveBean.nuovoMetodo.codice}" required="true" />
+
+                    <h:outputLabel for="descrizione" value="Descrizione:" />
+                    <p:inputText id="descrizione1" value="#{insModProveBean.nuovoMetodo.descrizione}" />
+                </h:panelGrid>
+                <p:separator />
+                <p:commandButton value="Salva" 
+                                 action="#{insModProveBean.salvaNuovoMetodo}"
+                                 process="dialogNuovoMetodo"
+                                 update=":form" 
+                                 oncomplete="PF('dlgNuovoMetodo').hide();" 
+                                 icon="pi pi-check" 
+                                 />
+            </p:dialog>
+
+            <!--Tooltip Profilo-->
+            <p:overlayPanel id='tooltipPanel3' widgetVar="tooltipPanel3" for="tooltipIcon3"  showCloseIcon="true" dismissable="true" style='width: 300px'>
+                <p:fieldset legend="Informazioni Profilo">
+                    <p:panelGrid columns="2" styleClass="ui-panelgrid-blank">
+                        <p:outputLabel value="Codice:" />
+                        <p:outputLabel value="#{insModProveBean.profiloSelezionato.codice}" />
+
+                        <p:outputLabel value="Descrizione:" />
+                        <p:outputLabel value="#{insModProveBean.profiloSelezionato.descrizione}" />
+                    </p:panelGrid>
+                </p:fieldset>
+            </p:overlayPanel>
+            <!--dialog per l'aggiunta di nuovi profili-->
+            <p:dialog id="dialogNuovoProfilo" widgetVar="dlgNuovoProfilo" header="Nuovo Profilo" modal="true" closable="true" resizable="false">
+                <h:panelGrid columns="2" cellpadding="5">
+                    <h:outputLabel for="codiceProfilo" value="Descrizione:" />
+                    <p:inputText id="codiceProfilo" value="#{insModProveBean.nuovoProfilo.codice}" required="true" />
+
+                    <h:outputLabel for="descrizioneProfilo" value="Descrizione:" />
+                    <p:inputText id="descrizioneProfilo" value="#{insModProveBean.nuovoProfilo.descrizione}" />
+                </h:panelGrid>
+                <p:separator />
+                <p:commandButton value="Salva" 
+                                 action="#{insModProveBean.salvaNuovoProfilo}"
+                                 process="dialogNuovoProfilo" 
+                                 update=":form" 
+                                 oncomplete="PF('dlgNuovoProfilo').hide();" 
+                                 icon="pi pi-check" />
+            </p:dialog>
+        </h:form>
     </ui:define>
 </ui:composition>
