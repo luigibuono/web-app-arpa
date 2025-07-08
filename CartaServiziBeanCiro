@@ -1,0 +1,641 @@
+/*
+ * To change this license header, choose License Headers in Project Properties.
+ * To change this template file, choose Tools | Templates
+ * and open the template in the editor.
+ */
+package it.cidsoftware.sita.bean.lims.tabelleBase;
+
+import com.cid.sita.bd.Aliquota4CertificatoAnaliticoBD;
+import com.cid.sita.bd.Aliquota4CertificatoAnaliticoBDException;
+import com.cid.sita.bd.AttivitaRisorsaBD;
+import com.cid.sita.bd.AttivitaRisorsaBDException;
+import com.cid.sita.bd.CertificatoAnaliticoBD;
+import com.cid.sita.bd.CertificatoAnaliticoBDException;
+import com.cid.sita.bd.CmmCfgPropertiesBD;
+import com.cid.sita.bd.EsameBD;
+import com.cid.sita.bd.EsameBDException;
+import com.cid.sita.bd.MatriceBD;
+import com.cid.sita.bd.MatriceBDException;
+import com.cid.sita.bd.ReportsBD;
+import com.cid.sita.bd.StrutturaAmministrativaBD;
+import com.cid.sita.bd.StrutturaAmministrativaBDException;
+import com.cid.sita.bd.aliquota4certificatoanalitico.Aliquota4CertificatoAnaliticoDTOModel;
+import com.cid.sita.bd.certificatoanalitico.CertificatoAnaliticoDTOModel;
+import com.cid.sita.bd.cmmcfgproperties.CfgPropertiesDtoModel;
+import com.cid.sita.bd.esame.EsameDTOModel;
+import com.cid.sita.bd.matrice.MatriceDTOModel;
+import com.cid.sita.bd.matrice.MatriceModel;
+import com.cid.sita.bd.matrice.MatricePkModel;
+import com.cid.sita.bd.registrolims.RegistroLimsModel;
+import com.cid.sita.bd.reports.ReportsModel;
+import com.cid.sita.bd.strutturaamministrativa.StrutturaAmministrativaModel;
+import com.cid.sita.lims.dto.CategoriaEsame;
+import com.cid.sita.lims.dto.StrutturaAmministrativa;
+import it.cidsoftware.sita.bean.lims.AttivitaCampionatoreBean;
+import it.cidsoftware.sita.bean.lims.AttivitaDiCampoBean;
+import it.cidsoftware.sita.faces.util.AbstractPageBean;
+import it.cidsoftware.sita.faces.util.JSFUtils;
+import it.cidsoftware.sita.lims.utility.StampeUtil;
+import java.io.ByteArrayInputStream;
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Base64;
+import java.util.Date;
+import java.util.List;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+import javax.annotation.PostConstruct;
+import javax.faces.bean.ManagedBean;
+import javax.faces.bean.ViewScoped;
+import javax.faces.context.ExternalContext;
+import javax.faces.context.FacesContext;
+import javax.servlet.ServletContext;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpSession;
+import org.apache.commons.lang3.StringUtils;
+import org.json.JSONObject;
+import org.primefaces.model.DefaultStreamedContent;
+import org.primefaces.model.StreamedContent;
+
+import org.primefaces.PrimeFaces;
+
+/**
+ *
+ * @author Ciro Della Bruna
+ */
+@ManagedBean(name = "cartaServiziBean")
+@ViewScoped
+public class CartaServiziBean extends AbstractPageBean implements Serializable {
+
+    private HttpSession session = JSFUtils.getSession();
+    private StrutturaAmministrativaModel[] listaStrutturaCartaServizi = new StrutturaAmministrativaModel[0];
+    private boolean boolDipartimentoInserito = false;
+    private List<MatriceModel> listaSottoMatrici = new ArrayList<>();
+    private MatriceModel[] matrici = new MatriceModel[0];
+    private String codiceNewSottMatrice = "";
+    private String descrizioneNewSottMatrice = "";
+    private long idMatricePrincipaleSelezionata;
+    private long idStrutturaSelezionata;
+    private MatriceModel selected = new MatriceModel();
+
+    private long idCertificatoAnalitoco;
+    private CertificatoAnaliticoDTOModel pacchetto = new CertificatoAnaliticoDTOModel();
+
+    private List<EsameDTOModel> listaProve = new ArrayList<>();
+    private List<CertificatoAnaliticoDTOModel> listaPacchetti = new ArrayList<>();
+    private List<Aliquota4CertificatoAnaliticoDTOModel> listaSottoPacchetti = new ArrayList<>();
+
+    @PostConstruct
+    public void initialize() {
+
+        caricaDipartimenti();
+        caricaMatriciPrincipali();
+    }
+
+    //********************************metodi per caricamento informazioni Ciro****************
+    public void caricaDipartimenti() {
+
+        StrutturaAmministrativaBD strAmmBD = new StrutturaAmministrativaBD();
+        try {
+            listaStrutturaCartaServizi = strAmmBD.caricaDipartimenti(JSFUtils.getLoggedUser());
+        } catch (StrutturaAmministrativaBDException ex) {
+            Logger.getLogger(CartaServiziBean.class.getName()).log(Level.SEVERE, null, ex);
+        }
+    }
+
+    public void caricaMatriciPrincipali() {
+        MatriceBD matriceBD = new MatriceBD();
+        try {
+            if (idStrutturaSelezionata > 0) {
+                //modifiche del 28/05/2025 Ciro cambiato il metodo per caricare le matrici principali
+                setMatrici(matriceBD.caricaMatricePrincipale(JSFUtils.getLoggedUser()));
+            }
+
+        } catch (MatriceBDException ex) {
+            Logger.getLogger(CartaServiziBean.class.getName()).log(Level.SEVERE, null, ex);
+        }
+    }
+
+    public void caricaSottoMatrici() {
+        try {
+            listaSottoMatrici = new ArrayList<>();
+            MatriceBD matBD = new MatriceBD();
+
+            MatriceModel[] lista = matBD.caricaMatriciCartaDeiServizi(idMatrice, idStruttura, JSFUtils.getLoggedUser());
+            listaSottoMatrici = Arrays.asList(lista);
+
+        } catch (MatriceBDException ex) {
+            Logger.getLogger(CartaServiziBean.class.getName()).log(Level.SEVERE, null, ex);
+        }
+
+    }
+
+    public void caricaProvePacchettiSottoPacchettiDaMatrice() {
+        try {
+
+            listaProve = new ArrayList<>();
+            listaPacchetti = new ArrayList<>();
+            listaSottoPacchetti = new ArrayList<>();
+            if (selected.getIdMatrice() > 0 && idStruttura > 0) {
+                System.out.println("valore id matrice----------> " + selected.getIdMatrice());
+                System.out.println("valore idStruttura----------> " + idStruttura);
+
+                EsameBD esameBD = new EsameBD();
+                listaProve = Arrays.asList(esameBD.caricaProveSingole(idStruttura, selected.getIdMatrice(), "", JSFUtils.getLoggedUser()));
+
+                CertificatoAnaliticoBD attBD = new CertificatoAnaliticoBD();
+                listaPacchetti = Arrays.asList(attBD.caricaPacchettiProve(idStruttura, selected.getIdMatrice(), "", "", JSFUtils.getLoggedUserInfo()));
+
+                if (selected.getIdMatrice() > 0 && pacchetto.getIdCertificatoAnalitico() > 0) {
+                    System.out.println("stampa valore idcertificato analitico-----------> " + pacchetto.getIdCertificatoAnalitico());
+                    caricaSottoPacchettiPerPacchetto();
+                }
+
+            }
+        } catch (EsameBDException ex) {
+            Logger.getLogger(CartaServiziBean.class.getName()).log(Level.SEVERE, null, ex);
+        } catch (CertificatoAnaliticoBDException ex) {
+            Logger.getLogger(CartaServiziBean.class.getName()).log(Level.SEVERE, null, ex);
+        }
+    }
+
+    public void caricaSottoPacchettiPerPacchetto() {
+        try {
+            Aliquota4CertificatoAnaliticoBD al4BD = new Aliquota4CertificatoAnaliticoBD();
+            listaSottoPacchetti = Arrays.asList(al4BD.cercaAliquoteLaboratorio(pacchetto.getIdCertificatoAnalitico(), 0, "", JSFUtils.getLoggedUserInfo()));
+
+        } catch (Aliquota4CertificatoAnaliticoBDException ex) {
+            Logger.getLogger(CartaServiziBean.class.getName()).log(Level.SEVERE, null, ex);
+        }
+    }
+
+    //***************METODO PER OTTENERE LA DESCRIZIONE STATICA DELLA CATEGORIA ESAME DALL'ID CIRO
+    public static String restituisciDescrizioneCategoriaEsamePadre(int idCategoriaEsame) {
+
+        String descrizioneCategoriaEsame;
+
+        switch (idCategoriaEsame) {
+            case 1:
+                descrizioneCategoriaEsame = "BIOLOGICO";
+                break;
+            case 3:
+                descrizioneCategoriaEsame = "CHIMICO";
+                break;
+            case 7:
+                descrizioneCategoriaEsame = "FISICO";
+                break;
+            default:
+                descrizioneCategoriaEsame = "CATEGORIA ESAME NON DEFINITA";
+                break;
+        }
+
+        return descrizioneCategoriaEsame;
+    }
+
+//**************************************Gestione Stampa Carta Servizi Ciro
+    private ServletContext _servletContext;
+    private StreamedContent downlPdfCartaServizi;
+
+    private long idMatrice;
+    private long idStruttura;
+
+    public String scriviFileFromJson(String json, String path) {
+        InputStream is = null;
+        String pathTemporaneo = "";
+        JSONObject obj = new JSONObject(json);
+        if (obj != null) {
+            String base64 = obj.getString("base64");
+            String filename = obj.getString("filename");
+
+            String file = "";
+            if (filename != null && filename.matches("(.*)_v(.*).")) {
+                file = filename.substring(0, filename.indexOf("_v")) + filename.substring(filename.lastIndexOf("."));
+            } else {
+                file = filename;
+            }
+
+            File f = new File(path);
+            if (!f.exists()) {
+                f.mkdirs();
+            }
+
+            if (base64 != null && !"".equals(base64)) {
+                byte[] decodedBytes = Base64.getDecoder().decode(base64.substring(base64.indexOf("base64,") + 7));
+                is = new ByteArrayInputStream(decodedBytes);
+                copyFile(file, is, path);
+                pathTemporaneo = path + file;
+            }
+        }
+        return pathTemporaneo;
+
+    }
+
+    public void copyFile(String fileName, InputStream in, String destination) {
+        try {
+
+            OutputStream out = new FileOutputStream(new File(destination + fileName));
+            int read = 0;
+            byte[] bytes = new byte[1024];
+            while ((read = in.read(bytes)) != -1) {
+                out.write(bytes, 0, read);
+            }
+            in.close();
+            out.flush();
+            out.close();
+//            info("Operazione Avvenuta Con Successo");
+//            caricaFile();
+        } catch (IOException e) {
+            System.out.println(e.getMessage());
+        }
+    }
+
+    private byte[] generaPdfCartaServizi() throws Exception {
+
+        byte[] pdfData = null;
+
+        HttpServletRequest req = (HttpServletRequest) FacesContext.getCurrentInstance().getExternalContext().getRequest();
+
+        if (this.getServletContext() == null && req != null) {
+            System.out.println("sono in definizione servletContext");
+            this.setServletContext(req.getServletContext());
+        }
+
+        CmmCfgPropertiesBD propBD = new CmmCfgPropertiesBD();
+
+        CfgPropertiesDtoModel[] checkProp;
+        String keyProperties = FacesContext.getCurrentInstance().getExternalContext().getInitParameter("APPLICAZIONE");
+        checkProp = propBD.cerca("app_azienda", keyProperties, "", "S", JSFUtils.getLoggedUser());
+        long aziendaApplicazione = Long.parseLong(checkProp[0].getPropValue());
+        checkProp = propBD.riCerca(aziendaApplicazione, "path", "path_temporaneo", "", "S", JSFUtils.getLoggedUser());
+        if (checkProp == null || checkProp.length == 0) {
+            error("Parametro di configurazione path temporaneo non configurato.");
+            return null;
+        }
+
+        String path = checkProp[0].getPropValue();
+        File f = new File(path);
+        if (!f.exists()) {
+            f.mkdirs();
+        }
+
+        //devo ottenere l'ultima versione del jasper 1 e jasper 2
+        checkProp = propBD.riCerca(aziendaApplicazione, "report", "ReportCartaServizi", "", "S", JSFUtils.getLoggedUser());
+        System.out.println("");
+        if (checkProp == null || checkProp.length == 0) {
+            error("Parametro di configurazione report Carta Servizi non configurato.");
+            return null;
+        }
+
+        String verbale = checkProp[0].getPropValue();
+
+        ReportsBD repBD = new ReportsBD();
+
+        ReportsModel[] checkReport = repBD.cerca(verbale, "", "", "A", "N", JSFUtils.getLoggedUser());
+        if (checkReport == null || checkReport.length == 0) {
+            error("Nessun report " + verbale + " attivo presente.");
+            return null;
+        }
+
+        ReportsModel soprCampAcquaBalneazione = checkReport[0];
+
+        String json1 = repBD.ottieniBase64File(soprCampAcquaBalneazione.getIdReports(), JSFUtils.getLoggedUser());
+        System.out.println("STAMPA OTTIENI BASE 64 FILE-----------------------> " + json1);
+
+        String templatePath = scriviFileFromJson(json1, path);
+
+        System.out.println("STAMPA TEMPLATEPATH-----------------------> " + templatePath);
+        pdfData = StampeUtil.doStampaCartaServiziReport(_servletContext, templatePath, idMatrice, idStruttura, "", null);
+
+        File file = new File(templatePath);
+
+        if (file.exists()) {
+            file.delete();
+        }
+        return pdfData;
+
+    }
+
+    public StreamedContent getDownlPdfCartaServizi() throws FileNotFoundException {
+
+        try {
+
+            byte[] data = generaPdfCartaServizi();
+
+            ByteArrayInputStream arrayInputStream = new ByteArrayInputStream(data);
+
+            downlPdfCartaServizi = DefaultStreamedContent.builder().contentType("application/pdf").name("Carta Servizi" + ".pdf").stream(() -> arrayInputStream).build();
+        } catch (Exception e) {
+            e.printStackTrace();
+            throw new FileNotFoundException("Errore nella generazione del PDF");
+        }
+
+        return downlPdfCartaServizi;
+    }
+
+    public void setDownlPdfCartaServizi(StreamedContent downlPdfCartaServizi) {
+        this.downlPdfCartaServizi = downlPdfCartaServizi;
+    }
+
+    public void generaStampaCartaServizi(MatriceModel model) {
+
+        System.out.println("STO ENTRANDO NEL METODO GENERA STAMPA CARTA SERVIZI------------------->");
+
+        idStruttura = model.getIdStruttura();
+        idMatrice = model.getIdMatrice();
+//
+        System.out.println("idMatrice------------> " + model.getIdMatrice());
+        System.out.println("idStruttura------------> " + model.getIdStruttura());
+        PrimeFaces.current().executeScript("functionCartaServizi()");
+
+    }
+
+    public String goToInsert() {
+        try {
+            ExternalContext cont = FacesContext.getCurrentInstance().getExternalContext();
+            cont.redirect(FacesContext.getCurrentInstance().getExternalContext().getRequestContextPath() + "/faces/lims/tabelle_base/cartaServiziInsSottoMatrice.xhtml");
+        } catch (IOException ex) {
+            Logger.getLogger(CartaServiziBean.class.getName()).log(Level.SEVERE, null, ex);
+        }
+        return null;
+    }
+
+    //navigation
+    public String modifica(Long idEsame) {
+        System.out.println("Navigazione a insModProve.xhtml con idStruttura=" + idStruttura + " idMatrice=" + idMatrice);
+        FacesContext.getCurrentInstance().getExternalContext().getSessionMap().put("idStruttura", idStruttura);
+        FacesContext.getCurrentInstance().getExternalContext().getSessionMap().put("idMatrice", idMatrice);
+        session.setAttribute("selected", null);
+        System.out.println("MODIFICA chiamata con idEsame: " + idEsame);
+        return "insModProve.xhtml?faces-redirect=true&idEsame=" + idEsame + "&editMode=2";
+    }
+
+    public String goToInsModProve() {
+        System.out.println("Navigazione a insModProve.xhtml con idStruttura=" + idStruttura + " idMatrice=" + idMatrice);
+        FacesContext.getCurrentInstance().getExternalContext().getSessionMap().put("idStruttura", idStruttura);
+        FacesContext.getCurrentInstance().getExternalContext().getSessionMap().put("idMatrice", idMatrice);
+        session.setAttribute("selected", null);
+        return "/lims/tabelle_base/insModProve.xhtml?faces-redirect=true";
+    }
+
+    //********************************************fine gestione Stampa Ciro 24/06/2025
+    /**
+     * @return the _servletContext
+     */
+    public ServletContext getServletContext() {
+        return _servletContext;
+    }
+
+    /**
+     * @param _servletContext the _servletContext to set
+     */
+    public void setServletContext(ServletContext _servletContext) {
+        this._servletContext = _servletContext;
+    }
+
+    /**
+     * @return the idMatrice
+     */
+    public long getIdMatrice() {
+        return idMatrice;
+    }
+
+    /**
+     * @param idMatrice the idMatrice to set
+     */
+    public void setIdMatrice(long idMatrice) {
+        this.idMatrice = idMatrice;
+    }
+
+    /**
+     * @return the idStruttura
+     */
+    public long getIdStruttura() {
+        return idStruttura;
+    }
+
+    /**
+     * @param idStruttura the idStruttura to set
+     */
+    public void setIdStruttura(long idStruttura) {
+        this.idStruttura = idStruttura;
+    }
+
+    /**
+     * @return the listaStrutturaCartaServizi
+     */
+    public StrutturaAmministrativaModel[] getListaStrutturaCartaServizi() {
+        return listaStrutturaCartaServizi;
+    }
+
+    /**
+     * @param listaStrutturaCartaServizi the listaStrutturaCartaServizi to set
+     */
+    public void setListaStrutturaCartaServizi(StrutturaAmministrativaModel[] listaStrutturaCartaServizi) {
+        this.listaStrutturaCartaServizi = listaStrutturaCartaServizi;
+    }
+
+    /**
+     * @return the boolDipartimentoInserito
+     */
+    public boolean isBoolDipartimentoInserito() {
+        return boolDipartimentoInserito;
+    }
+
+    /**
+     * @param boolDipartimentoInserito the boolDipartimentoInserito to set
+     */
+    public void setBoolDipartimentoInserito(boolean boolDipartimentoInserito) {
+        this.boolDipartimentoInserito = boolDipartimentoInserito;
+    }
+
+    /**
+     * @return the listaSottoMatrici
+     */
+    public List<MatriceModel> getListaSottoMatrici() {
+        return listaSottoMatrici;
+    }
+
+    /**
+     * @param listaSottoMatrici the listaSottoMatrici to set
+     */
+    public void setListaSottoMatrici(List<MatriceModel> listaSottoMatrici) {
+        this.listaSottoMatrici = listaSottoMatrici;
+    }
+
+    /**
+     * @return the session
+     */
+    public HttpSession getSession() {
+        return session;
+    }
+
+    /**
+     * @param session the session to set
+     */
+    public void setSession(HttpSession session) {
+        this.session = session;
+    }
+
+    /**
+     * @return the matrici
+     */
+    public MatriceModel[] getMatrici() {
+        return matrici;
+    }
+
+    /**
+     * @param matrici the matrici to set
+     */
+    public void setMatrici(MatriceModel[] matrici) {
+        this.matrici = matrici;
+    }
+
+    /**
+     * @return the descrizioneNewSottMatrice
+     */
+    public String getDescrizioneNewSottMatrice() {
+        return descrizioneNewSottMatrice;
+    }
+
+    /**
+     * @param descrizioneNewSottMatrice the descrizioneNewSottMatrice to set
+     */
+    public void setDescrizioneNewSottMatrice(String descrizioneNewSottMatrice) {
+        this.descrizioneNewSottMatrice = descrizioneNewSottMatrice;
+    }
+
+    /**
+     * @return the idMatricePrincipaleSelezionata
+     */
+    public long getIdMatricePrincipaleSelezionata() {
+        return idMatricePrincipaleSelezionata;
+    }
+
+    /**
+     * @param idMatricePrincipaleSelezionata the idMatricePrincipaleSelezionata
+     * to set
+     */
+    public void setIdMatricePrincipaleSelezionata(long idMatricePrincipaleSelezionata) {
+        this.idMatricePrincipaleSelezionata = idMatricePrincipaleSelezionata;
+    }
+
+    /**
+     * @return the codiceNewSottMatrice
+     */
+    public String getCodiceNewSottMatrice() {
+        return codiceNewSottMatrice;
+    }
+
+    /**
+     * @param codiceNewSottMatrice the codiceNewSottMatrice to set
+     */
+    public void setCodiceNewSottMatrice(String codiceNewSottMatrice) {
+        this.codiceNewSottMatrice = codiceNewSottMatrice;
+    }
+
+    /**
+     * @return the idStrutturaSelezionata
+     */
+    public long getIdStrutturaSelezionata() {
+        return idStrutturaSelezionata;
+    }
+
+    /**
+     * @param idStrutturaSelezionata the idStrutturaSelezionata to set
+     */
+    public void setIdStrutturaSelezionata(long idStrutturaSelezionata) {
+        this.idStrutturaSelezionata = idStrutturaSelezionata;
+    }
+
+    /**
+     * @return the selected
+     */
+    public MatriceModel getSelected() {
+        return selected;
+    }
+
+    /**
+     * @param selected the selected to set
+     */
+    public void setSelected(MatriceModel selected) {
+        this.selected = selected;
+    }
+
+    /**
+     * @return the listaProve
+     */
+    public List<EsameDTOModel> getListaProve() {
+        return listaProve;
+    }
+
+    /**
+     * @param listaProve the listaProve to set
+     */
+    public void setListaProve(List<EsameDTOModel> listaProve) {
+        this.listaProve = listaProve;
+    }
+
+    /**
+     * @return the listaPacchetti
+     */
+    public List<CertificatoAnaliticoDTOModel> getListaPacchetti() {
+        return listaPacchetti;
+    }
+
+    /**
+     * @param listaPacchetti the listaPacchetti to set
+     */
+    public void setListaPacchetti(List<CertificatoAnaliticoDTOModel> listaPacchetti) {
+        this.listaPacchetti = listaPacchetti;
+    }
+
+    /**
+     * @return the listaSottoPacchetti
+     */
+    public List<Aliquota4CertificatoAnaliticoDTOModel> getListaSottoPacchetti() {
+        return listaSottoPacchetti;
+    }
+
+    /**
+     * @param listaSottoPacchetti the listaSottoPacchetti to set
+     */
+    public void setListaSottoPacchetti(List<Aliquota4CertificatoAnaliticoDTOModel> listaSottoPacchetti) {
+        this.listaSottoPacchetti = listaSottoPacchetti;
+    }
+
+    /**
+     * @return the idCertificatoAnalitoco
+     */
+    public long getIdCertificatoAnalitoco() {
+        return idCertificatoAnalitoco;
+    }
+
+    /**
+     * @param idCertificatoAnalitoco the idCertificatoAnalitoco to set
+     */
+    public void setIdCertificatoAnalitoco(long idCertificatoAnalitoco) {
+        this.idCertificatoAnalitoco = idCertificatoAnalitoco;
+    }
+
+    /**
+     * @return the pacchetto
+     */
+    public CertificatoAnaliticoDTOModel getPacchetto() {
+        return pacchetto;
+    }
+
+    /**
+     * @param pacchetto the pacchetto to set
+     */
+    public void setPacchetto(CertificatoAnaliticoDTOModel pacchetto) {
+        this.pacchetto = pacchetto;
+    }
+
+}
