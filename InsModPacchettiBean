@@ -1,0 +1,547 @@
+/*
+ * To change this license header, choose License Headers in Project Properties.
+ * To change this template file, choose Tools | Templates
+ * and open the template in the editor.
+ */
+package it.cidsoftware.sita.bean.lims.tabelleBase;
+
+import com.cid.sita.bd.CertificatoAnaliticoBD;
+import com.cid.sita.bd.CertificatoAnaliticoBDException;
+import com.cid.sita.bd.EsameBD;
+import com.cid.sita.bd.EsameBDException;
+import com.cid.sita.bd.StrutturaAmministrativaBD;
+import com.cid.sita.bd.StrutturaAmministrativaBDException;
+import com.cid.sita.bd.certificatoanalitico.PacchettiCartaServiziDTOModel;
+import com.cid.sita.bd.certificatoanalitico.SottopacchettoDTOModel;
+import com.cid.sita.bd.esame.EsameDTOModel;
+import com.cid.sita.bd.esame.MatriceModel;
+import com.cid.sita.bd.strutturaamministrativa.StrutturaAmministrativaModel;
+import it.cidsoftware.sita.bean.lims.AttivitaDiCampoBean;
+import it.cidsoftware.sita.faces.util.AbstractPageBean;
+import it.cidsoftware.sita.faces.util.JSFUtils;
+import java.io.IOException;
+import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Map;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+import javax.annotation.PostConstruct;
+import javax.faces.bean.ManagedBean;
+import javax.faces.bean.ViewScoped;
+import javax.faces.context.ExternalContext;
+import javax.faces.context.FacesContext;
+import javax.servlet.http.HttpSession;
+
+/**
+ *
+ * @author Ciro Della Bruna
+ */
+@ManagedBean(name = "insModPacchettiBean")
+@ViewScoped
+public class InsModPacchettiBean extends AbstractPageBean implements Serializable {
+
+    private HttpSession session = JSFUtils.getSession();
+    
+    private PacchettiCartaServiziDTOModel pacchettoModel = new PacchettiCartaServiziDTOModel();
+    
+    private List<EsameDTOModel> listaRicerca = new ArrayList<>();
+
+    private EsameDTOModel selectedAliqModel = new EsameDTOModel();
+    private EsameDTOModel esameNew = new EsameDTOModel();
+
+    private long idDipartimento = 0;
+
+    private String prove1 = "";
+    private String prove2 = "";
+
+    private String nomeSottoPacchetto;
+
+    private boolean cond = false;
+
+    //liste
+    private StrutturaAmministrativaModel[] listaStruttura = new StrutturaAmministrativaModel[0];
+    private List<MatriceModel> elencoMatrici = new ArrayList<>();
+    private List<EsameDTOModel> listaProve = new ArrayList<>();
+    private List<EsameDTOModel> proveAggiunte;
+    public List<Long> proveSelezionate = new ArrayList<>();
+    private List<SottopacchettoDTOModel> listaSottoPacchetti;
+
+    //variables
+    private String codiceSottoPacchetto;
+    private String descrizioneCatEsame;
+    private Long idStrutturaDaCarta;
+    private Long matriceDaCarta;
+    private Long pacchettoDaCarta;
+    private String denominazioneStrutturaSelezionata;
+    private String descrizioneMatriceSelezionata;
+    private boolean boolInserimento = false;
+    private boolean boolModifica = false;
+    
+    @PostConstruct
+    public void initialize() {
+        // Recupera da sessione
+        ExternalContext externalContext = FacesContext.getCurrentInstance().getExternalContext();
+        Map<String, Object> sessionMap = externalContext.getSessionMap();
+
+        Object struttura = sessionMap.get("idStruttura");
+        Object matrice = sessionMap.get("idMatrice");
+        Object pacchetto = sessionMap.get("idCertificatoAnalitico");
+
+        if (struttura != null) {
+            this.setIdStrutturaDaCarta((Long) struttura);
+        }
+
+        if (matrice != null) {
+            this.setMatriceDaCarta((Long) matrice);
+        }
+
+        if (pacchetto != null){
+            this.setPacchettoDaCarta((Long) pacchetto);
+        }
+
+        // Recupera denominazione struttura
+        for (StrutturaAmministrativaModel s : listaStruttura) {
+            if (Long.valueOf(s.getIdStruttura()).equals(getIdStrutturaDaCarta())) {
+                this.setDenominazioneStrutturaSelezionata(s.getDenominazione());
+                break;
+            }
+        }
+
+        // Recupera descrizione matrice
+        for (MatriceModel m : elencoMatrici) {
+            if (Long.valueOf(m.getIdMatrice()).equals(getMatriceDaCarta())) {
+                this.setDescrizioneMatriceSelezionata(m.getDescrizione());
+                break;
+            }
+        }
+
+//        for (SottopacchettoDTOModel s : listaProve) {
+//            if (Long.valueOf(e.getIdEsame()).equals(getEsameDaCarta())) {
+//                this.setDescrizioneEsameSelezionata(e.getMnemonico());
+//                break;
+//            }
+//        }
+        
+
+        proveSelezionate = new ArrayList<>();
+        proveAggiunte = new ArrayList<>();
+
+        caricaMatrici();
+        caricaDipartimenti();
+        caricaProve();
+        
+        //gestisce inserimento e modifica
+        Object idEsameSession = sessionMap.get("idCertificatoAnalitico");
+
+        if (idEsameSession != null) {
+            boolModifica = false;
+            boolInserimento = false;
+        } else {
+            boolInserimento = true;
+            boolModifica = false;
+        }
+
+    }
+
+    //Metodi carica
+    private void caricaMatrici() {
+        try {
+            setElencoMatrici(new ArrayList<>());
+            EsameBD esBD = new EsameBD();
+
+            MatriceModel[] elenco = esBD.caricaMatriciCartaDeiServizi(idDipartimento, JSFUtils.getLoggedUser());
+
+            if (elenco != null && elenco.length > 0) {
+                setElencoMatrici(Arrays.asList(elenco));
+
+            }
+
+        } catch (EsameBDException ex) {
+            Logger.getLogger(InsModProveBean.class
+                    .getName()).log(Level.SEVERE, null, ex);
+        }
+    }
+
+    public void caricaDipartimenti() {
+
+        StrutturaAmministrativaBD strAmmBD = new StrutturaAmministrativaBD();
+        try {
+            setListaStruttura(strAmmBD.caricaDipartimenti(JSFUtils.getLoggedUser()));
+
+        } catch (StrutturaAmministrativaBDException ex) {
+            Logger.getLogger(AttivitaDiCampoBean.class
+                    .getName()).log(Level.SEVERE, null, ex);
+        }
+    }
+
+    public void caricaProve() {
+        try {
+            EsameBD esameBD = new EsameBD();
+            setListaProve(Arrays.asList(esameBD.caricaProveSingole(0, 0, "", JSFUtils.getLoggedUser())));
+        } catch (EsameBDException ex) {
+            Logger.getLogger(InsModPacchettiBean.class.getName()).log(Level.SEVERE, null, ex);
+        }
+    }
+
+    public void aggiungiSottoPacchetti() {
+        System.out.println("🔍 aggiungiSottoPacchetti() invocato con codice = " + codiceSottoPacchetto
+                + ", descrizione = " + descrizioneCatEsame);
+
+        if (listaSottoPacchetti == null) {
+            listaSottoPacchetti = new ArrayList<>();
+            System.out.println("✅ Inizializzata listaSottoPacchetti");
+        }
+
+        SottopacchettoDTOModel nuovo = new SottopacchettoDTOModel();
+        nuovo.setCodiceSottopacchetto(codiceSottoPacchetto);
+        nuovo.setDescrizioneCatEsame(descrizioneCatEsame);
+        listaSottoPacchetti.add(nuovo);
+
+        System.out.println("➕ Aggiunto nuovo sottopacchetto: codice = " + nuovo.getCodiceSottopacchetto()
+                + ", descrizione = " + nuovo.getDescrizioneCatEsame());
+
+        System.out.println("📋 Stato attuale della lista:");
+        for (SottopacchettoDTOModel s : listaSottoPacchetti) {
+            System.out.println("  • " + s.getCodiceSottopacchetto() + " - " + s.getDescrizioneCatEsame());
+        }
+
+        // Reset campi
+        codiceSottoPacchetto = null;
+        descrizioneCatEsame = null;
+        System.out.println("🔄 Campi input resettati dopo inserimento");
+    }
+
+    public void reinderizzaPanelSottoPacchetti() {
+        this.cond = this.prove1.equals("SI");
+        System.out.println(cond);
+    }
+
+    public void aggiungiProveSelezionate() {
+        System.out.println("Contenuto raw proveSelezionate: " + proveSelezionate);
+
+        for (Long id : proveSelezionate) {
+            System.out.println(">>> Controllo id: " + id);
+            for (EsameDTOModel prova : listaProve) {
+                //System.out.println("... confronto con: " + prova.getIdEsame());
+                if (Long.valueOf(prova.getIdEsame()).equals(id)) {
+
+                    if (!getProveAggiunte().contains(prova)) {
+                        getProveAggiunte().add(prova);
+                        System.out.println(">>> Aggiunta prova: " + prova.getMnemonico());
+                    } else {
+                        System.out.println(">>> Prova già presente: " + prova.getMnemonico());
+                    }
+                    break;
+                }
+            }
+        }
+        //System.out.println("Contenuto raw proveSelezionate: " + proveSelezionate);
+
+        proveSelezionate.clear();
+        System.out.println(">>> proveSelezionate pulito");
+        System.out.println(">>> proveAggiunte finale: " + getProveAggiunte().size());
+        for (EsameDTOModel prova : getProveAggiunte()) {
+            System.out.println(" - " + prova.getMnemonico());
+        }
+        System.out.println(">>> FINE aggiungiProveSelezionate");
+    }
+
+    public String goBack() {
+        try {
+            ExternalContext cont = FacesContext.getCurrentInstance().getExternalContext();
+            cont.redirect(FacesContext.getCurrentInstance().getExternalContext().getRequestContextPath() + "/faces/lims/tabelle_base/cartaServizi.xhtml");
+        } catch (IOException ex) {
+            ex.printStackTrace();
+        }
+        return null;
+    }
+
+    //------------------------Set&Get------------------------
+    /**
+     * @return the session
+     */
+    public HttpSession getSession() {
+        return session;
+    }
+
+    /**
+     * @param session the session to set
+     */
+    public void setSession(HttpSession session) {
+        this.session = session;
+    }
+
+    /**
+     * @return the listaRicerca
+     */
+    public List<EsameDTOModel> getListaRicerca() {
+        return listaRicerca;
+    }
+
+    /**
+     * @param listaRicerca the listaRicerca to set
+     */
+    public void setListaRicerca(List<EsameDTOModel> listaRicerca) {
+        this.listaRicerca = listaRicerca;
+    }
+
+    /**
+     * @return the prove1
+     */
+    public String getProve1() {
+        return prove1;
+    }
+
+    /**
+     * @param prove1 the prove1 to set
+     */
+    public void setProve1(String prove1) {
+        this.prove1 = prove1;
+    }
+
+    /**
+     * @return the prove2
+     */
+    public String getProve2() {
+        return prove2;
+    }
+
+    /**
+     * @param prove2 the prove2 to set
+     */
+    public void setProve2(String prove2) {
+        this.prove2 = prove2;
+    }
+
+    /**
+     * @return the selectedAliqModel
+     */
+    public EsameDTOModel getSelectedAliqModel() {
+        return selectedAliqModel;
+    }
+
+    /**
+     * @param selectedAliqModel the selectedAliqModel to set
+     */
+    public void setSelectedAliqModel(EsameDTOModel selectedAliqModel) {
+        this.selectedAliqModel = selectedAliqModel;
+    }
+
+    /**
+     * @return the esameNew
+     */
+    public EsameDTOModel getEsameNew() {
+        return esameNew;
+    }
+
+    /**
+     * @param esameNew the esameNew to set
+     */
+    public void setEsameNew(EsameDTOModel esameNew) {
+        this.esameNew = esameNew;
+    }
+
+    /**
+     * @return the nomeSottoPacchetto
+     */
+    public String getNomeSottoPacchetto() {
+        return nomeSottoPacchetto;
+    }
+
+    /**
+     * @param nomeSottoPacchetto the nomeSottoPacchetto to set
+     */
+    public void setNomeSottoPacchetto(String nomeSottoPacchetto) {
+        this.nomeSottoPacchetto = nomeSottoPacchetto;
+    }
+
+    /**
+     * @return the codiceSottoPacchetto
+     */
+    public String getCodiceSottoPacchetto() {
+        return codiceSottoPacchetto;
+    }
+
+    /**
+     * @param codiceSottoPacchetto the codiceSottoPacchetto to set
+     */
+    public void setCodiceSottoPacchetto(String codiceSottoPacchetto) {
+        this.codiceSottoPacchetto = codiceSottoPacchetto;
+    }
+
+    public boolean isCond() {
+        return cond;
+    }
+
+    public void setCond(boolean cond) {
+        this.cond = cond;
+    }
+
+    //***************nuove****************
+    /**
+     * @return the listaStruttura
+     */
+    public StrutturaAmministrativaModel[] getListaStruttura() {
+        return listaStruttura;
+    }
+
+    /**
+     * @param listaStruttura the listaStruttura to set
+     */
+    public void setListaStruttura(StrutturaAmministrativaModel[] listaStruttura) {
+        this.listaStruttura = listaStruttura;
+    }
+
+    /**
+     * @return the elencoMatrici
+     */
+    public List<MatriceModel> getElencoMatrici() {
+        return elencoMatrici;
+    }
+
+    /**
+     * @param elencoMatrici the elencoMatrici to set
+     */
+    public void setElencoMatrici(List<MatriceModel> elencoMatrici) {
+        this.elencoMatrici = elencoMatrici;
+    }
+
+    /**
+     * @return the idDipartimento
+     */
+    public long getIdDipartimento() {
+        return idDipartimento;
+    }
+
+    /**
+     * @param idDipartimento the idDipartimento to set
+     */
+    public void setIdDipartimento(long idDipartimento) {
+        this.idDipartimento = idDipartimento;
+    }
+
+    public List<EsameDTOModel> getListaProve() {
+        return listaProve;
+    }
+
+    public void setListaProve(List<EsameDTOModel> listaProve) {
+        this.listaProve = listaProve;
+    }
+
+    public List<EsameDTOModel> getProveAggiunte() {
+        return proveAggiunte;
+    }
+
+    public void setProveAggiunte(List<EsameDTOModel> proveAggiunte) {
+        this.proveAggiunte = proveAggiunte;
+    }
+
+    public List<Long> getProveSelezionate() {
+        return proveSelezionate;
+    }
+
+    public void setProveSelezionate(List<Long> proveSelezionate) {
+        this.proveSelezionate = proveSelezionate;
+    }
+
+    public List<SottopacchettoDTOModel> getListaSottoPacchetti() {
+        return listaSottoPacchetti;
+    }
+
+    public void setListaSottoPacchetti(List<SottopacchettoDTOModel> listaSottoPacchetti) {
+        this.listaSottoPacchetti = listaSottoPacchetti;
+    }
+
+    public String getDescrizioneCatEsame() {
+        return descrizioneCatEsame;
+    }
+
+    public void setDescrizioneCatEsame(String descrizioneCatEsame) {
+        this.descrizioneCatEsame = descrizioneCatEsame;
+    }
+
+    /**
+     * @return the idStrutturaDaCarta
+     */
+    public Long getIdStrutturaDaCarta() {
+        return idStrutturaDaCarta;
+    }
+
+    /**
+     * @param idStrutturaDaCarta the idStrutturaDaCarta to set
+     */
+    public void setIdStrutturaDaCarta(Long idStrutturaDaCarta) {
+        this.idStrutturaDaCarta = idStrutturaDaCarta;
+    }
+
+    /**
+     * @return the matriceDaCarta
+     */
+    public Long getMatriceDaCarta() {
+        return matriceDaCarta;
+    }
+
+    /**
+     * @param matriceDaCarta the matriceDaCarta to set
+     */
+    public void setMatriceDaCarta(Long matriceDaCarta) {
+        this.matriceDaCarta = matriceDaCarta;
+    }
+
+    /**
+     * @return the denominazioneStrutturaSelezionata
+     */
+    public String getDenominazioneStrutturaSelezionata() {
+        return denominazioneStrutturaSelezionata;
+    }
+
+    /**
+     * @param denominazioneStrutturaSelezionata the denominazioneStrutturaSelezionata to set
+     */
+    public void setDenominazioneStrutturaSelezionata(String denominazioneStrutturaSelezionata) {
+        this.denominazioneStrutturaSelezionata = denominazioneStrutturaSelezionata;
+    }
+
+    /**
+     * @return the descrizioneMatriceSelezionata
+     */
+    public String getDescrizioneMatriceSelezionata() {
+        return descrizioneMatriceSelezionata;
+    }
+
+    /**
+     * @param descrizioneMatriceSelezionata the descrizioneMatriceSelezionata to set
+     */
+    public void setDescrizioneMatriceSelezionata(String descrizioneMatriceSelezionata) {
+        this.descrizioneMatriceSelezionata = descrizioneMatriceSelezionata;
+    }
+
+    public boolean isBoolInserimento() {
+        return boolInserimento;
+    }
+
+    public void setBoolInserimento(boolean boolInserimento) {
+        this.boolInserimento = boolInserimento;
+    }
+
+    public boolean isBoolModifica() {
+        return boolModifica;
+    }
+
+    public void setBoolModifica(boolean boolModifica) {
+        this.boolModifica = boolModifica;
+    }
+
+    public Long getPacchettoDaCarta() {
+        return pacchettoDaCarta;
+    }
+
+    public void setPacchettoDaCarta(Long pacchettoDaCarta) {
+        this.pacchettoDaCarta = pacchettoDaCarta;
+    }
+    
+    
+    
+}
