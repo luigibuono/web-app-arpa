@@ -1,0 +1,435 @@
+<?xml version='1.0' encoding='UTF-8' ?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<ui:composition xmlns="http://www.w3.org/1999/xhtml"
+                xmlns:h="http://java.sun.com/jsf/html"
+                xmlns:f="http://java.sun.com/jsf/core"
+                xmlns:p="http://primefaces.org/ui"
+                xmlns:ui="http://java.sun.com/jsf/facelets"
+                template="/WEB-INF/template.xhtml">
+
+    <ui:define name="content">
+        <style>
+            /*            .custom-width {
+                            width: initial !important;
+                        }
+                        .full-width-important {
+                            width: 100% !important;
+                            margin-top: 1em;
+                        }
+            
+                        .ui-panelgrid-blank {
+                            width: 900px !important;
+                            padding: 0 !important;
+                        }
+                        .ui-grid .ui-grid-row {
+                            padding: 0 !important;
+                        }
+                        .ui-panelgrid-cell {
+                            padding-left : 0 !important;
+                            padding: 1rem !important;
+                        }*/
+
+        </style>
+
+        <h:form id="form" onkeypress="if (event.keyCode == 13) {
+                    return false;
+                }">
+            <p:ajaxStatus onstart="PF('statusDialog').show()" onsuccess="PF('statusDialog').hide()"  />
+            <p:dialog widgetVar="statusDialog" modal="true" draggable="false" closable="false" resizable="false" showHeader="false">
+                <p:graphicImage url="/resources/images/loader.gif" width="100px" height="100px" />
+            </p:dialog> 
+
+            <!-- Content Header (Page header) -->
+            <section class="content-header" >
+                <h1>
+                    <b style="color:#fbc948">C</b>onfigurazione <b style="color:#fbc948">P</b>acchetti 
+                </h1>
+            </section>
+
+
+            <p:growl id="messages" globalOnly="true"  severity="error, warn, fatal" showDetail="true" />
+            <p:growl id="messagesinfo" globalOnly="true"  severity="info" showDetail="true" />
+
+
+            <div class="p-grid crud-demo">
+                <div class="p-col-12">
+                    <div class="card">
+
+                        <p:panelGrid id="pnlForm" columns="1"  styleClass="ui-panelgrid-blank" layout="grid" columnClasses="ui-grid-col-12">
+                            <!--menu-->
+                            <p:fieldset legend="Informazioni Carta Servizi">
+                                <p:panelGrid id="pnlDip" columns="4"   styleClass="ui-panelgrid-blank" layout="grid" columnClasses="ui-grid-col-2,ui-grid-col-4,ui-grid-col-2,ui-grid-col-4">
+                                    <p:outputPanel>
+                                        <p:outputLabel value="Dipartimento " style="font-weight: bold"/>
+                                        <p:outputLabel value=" *" style="color: red;font-weight: bold"/>
+                                    </p:outputPanel>
+                                    <p:outputPanel>
+                                        <p:selectOneMenu value="#{insModPacchettiBean.listaStruttura}" >
+                                            <f:selectItem itemLabel="Nessuna selezione" itemValue="-1"></f:selectItem>
+                                            <f:selectItems noSelectionValue="-1" value="#{insModPacchettiBean.listaStruttura}" var="d" itemLabel="#{d.denominazione}" itemValue="#{d.idStruttura}" ></f:selectItems>
+                                        </p:selectOneMenu>
+                                    </p:outputPanel>
+
+                                    <p:outputPanel>
+                                        <p:outputLabel value="Matrice Carta Servizi " style="font-weight: bold"/>
+                                        <p:outputLabel value=" *" style="color: red;font-weight: bold"/>
+                                    </p:outputPanel>
+                                    <p:outputPanel>
+                                        <!--insModProveBean.boolInserimento or insModProveBean.boolModifica-->
+                                        <p:selectOneMenu value="#{insModPacchettiBean.elencoMatrici}"  >
+                                            <f:selectItem itemLabel="Nessuna selezione" itemValue="-1"></f:selectItem>
+                                            <f:selectItems noSelectionValue="-1" value="#{insModPacchettiBean.elencoMatrici}" var="d" itemLabel="#{d.descrizione}" itemValue="#{d.idMatrice}" ></f:selectItems>
+                                        </p:selectOneMenu>
+                                    </p:outputPanel>
+                                </p:panelGrid>
+                            </p:fieldset>
+
+                            <br/>
+
+                            <p:fieldset legend="Informazioni Pacchetto">
+                                <p:panelGrid columns="2" styleClass="ui-panelgrid-blank" layout="grid" columnClasses="ui-grid-col-3,ui-grid-col-9">
+
+                                    <p:outputLabel value="Codice Pacchetto" style="font-weight: bold"/>
+                                    <p:inputText value=""/>
+                                    <p:outputLabel value="Nome Pacchetto" style="font-weight: bold"/>
+                                    <p:inputText value=""/>
+
+                                    <p:outputLabel value="Continere dei Sottopacchetti? " style="font-weight: bold"/>
+
+                                    <p:selectOneMenu  value="#{insModPacchettiBean.prove1}">
+                                        <f:selectItem itemLabel="Seleziona" itemValue=""></f:selectItem>
+                                        <f:selectItem itemLabel="SI" itemValue="SI"></f:selectItem>
+                                        <f:selectItem itemLabel="NO" itemValue="NO"></f:selectItem>   
+                                        <p:ajax listener="#{insModPacchettiBean.reinderizzaPanelSottoPacchetti}" update="containerSottoPacchetto" />
+
+                                    </p:selectOneMenu>
+                                    <h:panelGroup style="display:flex;align-items:center;gap:6px;">
+                                        <p:commandButton id="cmdSalva" disabled="#{!userData.pagina.insertable}"  
+                                                         value="Salva" icon="pi pi-plus"  
+                                                         styleClass="ui-button-raised ui-button-success"  
+                                                         style="margin-right: .5rem; width: 100px;" />
+                                    </h:panelGroup>
+                                </p:panelGrid>
+                            </p:fieldset>
+
+                            <br/>
+
+                            <p:dialog id="dialogProve" widgetVar="dlgProve" header="Nuova Prova" modal="true" closable="true" resizable="false">
+                                <div style="display: flex; flex-direction: column; gap: 1rem; width: 500px;">
+                                    <label for="selectProve">Prove Disponibili:</label>
+                                    <p:selectCheckboxMenu id="selectProve"
+                                                          label="Seleziona Prove"
+                                                          value="#{insModPacchettiBean.proveSelezionate}"
+                                                          scrollHeight="200"
+                                                          style="width: 100%"
+                                                          multiple="true"
+                                                          panelStyle="max-height: 200px; overflow-y: auto;">
+                                        <f:selectItems value="#{insModPacchettiBean.listaProve}" 
+                                                       var="prova" 
+                                                       itemLabel="#{prova.mnemonico}" 
+                                                       itemValue="#{prova.idEsame}" />
+                                    </p:selectCheckboxMenu>
+
+                                    <div style="display: flex; justify-content: center;">
+                                        <p:commandButton 
+                                            value="Aggiungi Prova"
+                                            actionListener="#{insModPacchettiBean.aggiungiProveSelezionate}"
+                                            update=":form:tbView:parProveTable"
+                                            process="@this selectProve"
+                                            oncomplete="PF('dlgProve').hide();"
+                                            styleClass="ui-confirmdialog-yes ui-button-raised ui-button-success"
+                                            style="width: 150px;"
+                                            title="Aggiungi Prova"
+                                            />
+                                    </div>
+                                </div>
+                                <p:separator />
+                            </p:dialog>
+
+
+                            <h:panelGroup style="grid-column: span 4; text-align: left; margin-top: 1em; padding:0 !important">
+                                <p:commandButton icon="pi pi-plus" 
+                                                 title="Aggiungi Prove" 
+                                                 value="Aggiungi Prove"
+                                                 styleClass="rounded-button"
+                                                 style="width: 100px; height: auto; border-radius: 0 !important; padding: 0;"
+                                                 process="@this" 
+                                                 update=":form:dialogProve"
+                                                 oncomplete="PF('dlgProve').show();"
+                                                 />
+                            </h:panelGroup>
+
+                            <p:outputPanel id="containerSottoPacchetto">
+                                <p:fieldset legend="Informazioni SottoPacchetto"
+                                            id="wrapperCampiCondizionali"
+                                            rendered="#{insModPacchettiBean.cond}">
+
+                                    <p:panelGrid columns="2" styleClass="ui-panelgrid-blank" layout="grid"
+                                                 columnClasses="ui-grid-col-4,ui-grid-col-8">
+
+                                        <p:outputPanel layout="block" style="padding:0 !important">
+                                            <p:panelGrid id="campiCondizionali" columns="2" styleClass="ui-panelgrid-blank" layout="grid"
+                                                         columnClasses="ui-grid-col-4,ui-grid-col-4,ui-grid-col-2,ui-grid-col-4"
+                                                         style="padding:0 !important">
+                                                <p:outputLabel value="Nome SottoPacchetto"  style="font-weight: bold; padding:0 !important"
+                                                               for="codiceSottoPacchetto" />
+                                                <p:inputText id="codiceSottoPacchetto" value="#{insModPacchettiBean.codiceSottoPacchetto}" />
+
+                                                <p:outputLabel value="Categoria Esame" style="font-weight: bold;padding:0 !important"
+                                                               for="descrizioneCatEsame" />
+                                                <p:inputText id="descrizioneCatEsame" value="#{insModPacchettiBean.descrizioneCatEsame}" />
+
+                                                <h:panelGroup style="grid-column: span 4; text-align: left; margin-top: 1em; padding:0 !important">
+                                                    <p:commandButton id="cmdInsParam" disabled="#{!userData.pagina.insertable}"
+                                                                     value="Associa SottoPacchetti" 
+                                                                     actionListener="#{insModPacchettiBean.aggiungiSottoPacchetti}"
+                                                                     process="@this codiceSottoPacchetto descrizioneCatEsame"
+                                                                     update=":form:tbView:pnlDettaglioSottoPacc"
+                                                                     icon="pi pi-plus"
+                                                                     styleClass="ui-button-raised ui-button-success"
+                                                                     style="margin-right: .5rem; width: 170px;" />
+                                                </h:panelGroup>
+                                            </p:panelGrid>
+                                        </p:outputPanel>
+                                    </p:panelGrid>
+                                </p:fieldset>
+                            </p:outputPanel>
+
+
+                            <br/>
+
+                            <p:tabView id="tbView">
+                                <p:tab title="Prove">
+
+                                    <p:dataTable id="parProveTable"
+                                                 var="prove"
+                                                 value="#{insModPacchettiBean.proveAggiunte}"
+                                                 paginator="true"
+                                                 rows="10"
+                                                 paginatorPosition="bottom"
+                                                 emptyMessage="Nessun risultato presente">
+
+                                        <p:column headerText="Prova">
+                                            <h:outputText value="#{prove.mnemonico}" />
+                                        </p:column>
+
+                                        <p:column headerText="Metodo Analitico">
+                                            <h:outputText value="#{prove.descrizioneMetodo}"/>
+                                        </p:column>
+
+                                        <p:column headerText="Categoria">
+                                            <h:outputText  value="#{prove.categoriaDescrizione}"/>
+                                        </p:column>
+
+                                        <p:column headerText="Profilo Analitico">
+                                            <h:outputText />
+                                        </p:column>
+
+                                    </p:dataTable>
+
+                                </p:tab>
+
+                                <p:tab title="Sotto Pacchetti">
+                                    <p:panelGrid id="pnlDettaglioSottoPacc" columns="1"  styleClass="ui-panelgrid-blank" layout="grid" columnClasses="ui-grid-col-12">
+
+                                        <p:dataTable id="sottopacc" 
+                                                     var="sottopacc"  
+                                                     styleClass="products-table"
+                                                     value='#{insModPacchettiBean.listaSottoPacchetti}'
+                                                     emptyMessage="Nessun risultato presente">
+
+                                            <f:facet name="header">
+                                                <div class="p-d-flex p-jc-between p-ai-center">
+                                                    SottoPacchetti
+                                                </div>
+                                            </f:facet>
+
+                                            <!--                                            <p:column style="width: 2%">
+                                                                                            <p:rowToggler/>
+                                                                                        </p:column>-->
+
+
+                                            <p:column headerText="Nome SottoPacchetto" style="word-wrap:break-word;">
+                                                <h:outputText value="#{sottopacc.codiceSottopacchetto}" style="word-wrap:break-word"/>
+                                            </p:column> 
+
+                                            <p:column headerText="Categoria Esame" style="word-wrap:break-word;">
+                                                <h:outputText  value="#{sottopacc.descrizioneCatEsame}" style="word-wrap:break-word"/>
+                                            </p:column>  
+
+
+                                            <!--                                            <p:rowExpansion >
+                                            
+                                                                                            <p:panelGrid id="pnlDettaglioProve" columns="1"  styleClass="ui-panelgrid-blank" layout="grid" columnClasses="ui-grid-col-12">
+                                            
+                                                                                                <p:dataTable id="prove" var="prove" styleClass="products-table"
+                                                                                                             emptyMessage="Nessun risultato presente">
+                                            
+                                                                                                    <f:facet name="header">
+                                                                                                        <div class="p-d-flex p-jc-between p-ai-center">
+                                                                                                            Prove
+                                                                                                        </div>
+                                                                                                    </f:facet>
+                                            
+                                            
+                                                                                                    <p:column headerText="Descrizione Prova" style="word-wrap:break-word;">
+                                                                                                        <h:outputText  style="word-wrap:break-word"/>
+                                                                                                    </p:column> 
+                                            
+                                            
+                                            
+                                                                                                </p:dataTable>
+                                            
+                                            
+                                                                                            </p:panelGrid>
+                                                                                        </p:rowExpansion>-->
+
+                                        </p:dataTable>
+
+                                    </p:panelGrid>
+                                </p:tab>
+
+                            </p:tabView>
+                            <br/>
+
+                            <!--IN MODIFICA-->
+                            <p:panelGrid id="pnlMetodoMod" columns="1" rendered="#{!insModPacchettiBean.boolInserimento and insModPacchettiBean.boolModifica}"  styleClass="ui-panelgrid-blank" layout="grid" columnClasses="ui-grid-col-12">
+                                <p:fieldset legend="Informazioni Pacchetto">
+                                    <p:panelGrid columns="2" styleClass="ui-panelgrid-blank" layout="grid" columnClasses="ui-grid-col-3,ui-grid-col-9">
+
+                                        <p:outputLabel value="Codice Pacchetto" style="font-weight: bold"/>
+                                        <p:inputText value=""/>
+                                        <p:outputLabel value="Nome Pacchetto" style="font-weight: bold"/>
+                                        <p:inputText value=""/>
+
+                                    </p:panelGrid>
+                                </p:fieldset>
+
+                                <br/>
+
+<!--                                <p:outputPanel id="containerSottoPacchetto2">
+                                    <p:fieldset legend="Informazioni SottoPacchetto"
+                                                id="wrapperCampiCondizionali2"
+                                                >
+
+                                        <p:panelGrid columns="2" styleClass="ui-panelgrid-blank" layout="grid"
+                                                     columnClasses="ui-grid-col-4,ui-grid-col-8">
+
+                                            <p:outputPanel layout="block" style="padding:0 !important">
+                                                <p:panelGrid id="campiCondizionali2" columns="2" styleClass="ui-panelgrid-blank" layout="grid"
+                                                             columnClasses="ui-grid-col-4,ui-grid-col-4,ui-grid-col-2,ui-grid-col-4"
+                                                             style="padding:0 !important">
+                                                    <p:outputLabel value="Nome SottoPacchetto"  style="font-weight: bold; padding:0 !important"
+                                                                   for="codiceSottoPacchetto" />
+                                                    <p:inputText id="codiceSottoPacchetto" value="#{insModPacchettiBean.codiceSottoPacchetto}" />
+
+                                                    <p:outputLabel value="Categoria Esame" style="font-weight: bold;padding:0 !important"
+                                                                   for="descrizioneCatEsame" />
+                                                    <p:inputText id="descrizioneCatEsame" value="#{insModPacchettiBean.descrizioneCatEsame}" />
+
+                     
+                                                </p:panelGrid>
+                                            </p:outputPanel>
+                                        </p:panelGrid>
+                                    </p:fieldset>
+                                </p:outputPanel>
+
+                                <br/>
+
+                                <p:tabView id="tbView">
+                                    <p:tab title="Prove">
+
+                                        <p:dataTable id="parProveTable"
+                                                     var="prove"
+                                                     value="#{insModPacchettiBean.proveAggiunte}"
+                                                     paginator="true"
+                                                     rows="10"
+                                                     paginatorPosition="bottom"
+                                                     emptyMessage="Nessun risultato presente">
+
+                                            <p:column headerText="Prova">
+                                                <h:outputText value="#{prove.mnemonico}" />
+                                            </p:column>
+
+                                            <p:column headerText="Metodo Analitico">
+                                                <h:outputText value="#{prove.descrizioneMetodo}"/>
+                                            </p:column>
+
+                                            <p:column headerText="Categoria">
+                                                <h:outputText  value="#{prove.categoriaDescrizione}"/>
+                                            </p:column>
+
+                                            <p:column headerText="Profilo Analitico">
+                                                <h:outputText />
+                                            </p:column>
+
+                                        </p:dataTable>
+
+                                    </p:tab>
+
+                                    <p:tab title="Sotto Pacchetti">
+                                        <p:panelGrid id="pnlDettaglioSottoPacc" columns="1"  styleClass="ui-panelgrid-blank" layout="grid" columnClasses="ui-grid-col-12">
+
+                                            <p:dataTable id="sottopacc" 
+                                                         var="sottopacc"  
+                                                         styleClass="products-table"
+                                                         value='#{insModPacchettiBean.listaSottoPacchetti}'
+                                                         emptyMessage="Nessun risultato presente">
+
+                                                <f:facet name="header">
+                                                    <div class="p-d-flex p-jc-between p-ai-center">
+                                                        SottoPacchetti
+                                                    </div>
+                                                </f:facet>
+
+                                                <p:column headerText="Nome SottoPacchetto" style="word-wrap:break-word;">
+                                                    <h:outputText value="#{sottopacc.codiceSottopacchetto}" style="word-wrap:break-word"/>
+                                                </p:column> 
+
+                                                <p:column headerText="Categoria Esame" style="word-wrap:break-word;">
+                                                    <h:outputText  value="#{sottopacc.descrizioneCatEsame}" style="word-wrap:break-word"/>
+                                                </p:column>  
+
+                                            </p:dataTable>
+
+                                        </p:panelGrid>
+                                    </p:tab>
+
+                                </p:tabView>
+                                <br/>-->
+
+                            </p:panelGrid>
+
+                            <p:toolbar style="width:99%; margin: auto;border: none !important">
+                                <f:facet name="left">
+                                    <p:commandButton icon="fa fa-fw fa-arrow-left" title="Torna in Gestione Prove" value="Torna in Gestione Prove" styleClass="ui-button-raised ui-button-info p-mr-2 p-mb-2" action="cartaServizi.xhtml?faces-redirect=true" immediate="true"/>
+                                </f:facet>
+                            </p:toolbar>
+
+                            <p:confirmDialog styleClass="confdialog"  global="true" closable="false" showEffect="fade" hideEffect="fade">
+                                <h:panelGrid columns="2" style="width: 100%; text-align: center">
+                                    <p:commandButton value="Procedi" type="button" styleClass="ui-confirmdialog-yes ui-button-raised ui-button-success p-mr-2 p-mb-2" style="background:#89ad69 !important"  icon="fa fa-fw fa-check"/>
+                                    <p:commandButton value="Non procedere" type="button" styleClass="ui-confirmdialog-no ui-button-raised ui-button-danger p-mr-2 p-mb-2" style="background:#ef4d4d !important" icon="fa fa-fw fa-close"/>
+                                </h:panelGrid>
+                            </p:confirmDialog> 
+
+
+
+                        </p:panelGrid>
+
+
+
+
+
+                    </div>
+                </div>
+            </div> 
+        </h:form>
+
+
+
+
+
+    </ui:define>
+</ui:composition>
+
